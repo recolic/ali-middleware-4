@@ -8,8 +8,11 @@
 #include <string>
 #include <list>
 #include <rlib/sys/os.hpp>
+#include <rlib/sys/sio.hpp>
+#include <rlib/scope_guard.hpp>
 
-#include "json_serializer.hpp"
+#include <json_serializer.hpp>
+#include <boost/asio.hpp>
 
 class dubbo_client
 {
@@ -22,16 +25,49 @@ public:
             BAD_RESPONSE = 50, SERVICE_NOT_FOUND = 60, SERVICE_ERROR = 70, SERVER_ERROR = 80,
                     CLIENT_ERROR = 90, SERVER_THREADPOOL_EXHAUSTED_ERROR = 100};
 
-    status_t request(const kv_serializer::kv_list_t &parameter) {
-        return request(json_serializer::serialize(parameter));
-    }
-    status_t request(const std::string &payload) {
+    struct request_result_t {
+        status_t status;
+        kv_serializer::kv_list_t payload;
+    };
 
+    request_result_t request(const kv_serializer::kv_list_t &parameter) const {
+        return std::move(request(json_serializer().serialize(parameter)));
+    }
+    request_result_t request(const std::string &payload) const {
+        dubbo_header header;
+        header.is_request = 1;
+        header.need_return = 1;
+        header.is_event = 0;
+        header.serialization_id = 6;
+        header.status = 0;
+        header.request_id = 0x19990713;
+        header.data_length = (uint32_t)payload.size();
+
+        boost::asio::ip::tcp::socket sockServer(io_context);
+        boost::asio::ip::tcp::resolver resolver(io_context);
+        boost::asio::connect(sockServer, resolver.resolve(boost::asio::ip::tcp::resolver::query(server_addr, std::to_string(server_port))));
+
+        boost::asio::write(sockServer, boost::asio::buffer(&header, sizeof(header)));
+        boost::asio::write(sockServer, payload);
+
+        boost::asio::read(sockServer, boost::asio::buffer(&header, sizeof(header)));
+        if(header.data_length > 1024 * 1024 * 1024)
+            throw std::runtime_error("Dubbo server says the payload length is >1GiB. It's dangerous so I rejected.");
+        std::string payload_buffer;
+        payload_buffer.reserve(header.data_length);
+        boost::asio::read(sockServer, payload_buffer);
+
+        request_result_t result;
+        result.status = (status_t)header.status;
+        result.payload = json_serializer().deserialize(payload_buffer);
+        return std::move(result);
     }
 
 private:
     std::string server_addr;
     uint16_t server_port;
+
+    boost::asio::io_context io_context;
 
     struct dubbo_header {
         uint16_t magic = 0xdabb;

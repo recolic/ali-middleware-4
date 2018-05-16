@@ -14,7 +14,8 @@ public:
     using key_t = std::string;
     using value_t = std::string;
     using kv_list_t = std::list<std::pair<key_t, value_t> >;
-    virtual static std::string serialize(const kv_list_t &) = 0;
+    virtual std::string serialize(const kv_list_t &) const = 0;
+    virtual kv_list_t deserialize(const std::string &) const = 0;
 };
 
 
