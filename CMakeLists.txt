@@ -11,7 +11,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 include_directories(./lib)
 include_directories(./src)
 
-set(LIB_SRC lib/dubbo_client.cc lib/dubbo_client.hpp lib/kv_serializer.hpp lib/json_serializer.hpp lib/rlib/libr.cc)
+set(LIB_SRC lib/dubbo_client.hpp lib/kv_serializer.hpp lib/json_serializer.hpp lib/rlib/libr.cc)
 set(AGENT_SRC src/main.cc)
 
 add_executable(agent ${AGENT_SRC} ${LIB_SRC})
