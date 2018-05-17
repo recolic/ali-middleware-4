@@ -17,8 +17,9 @@ public:
     [[noreturn]] void listen(const std::string &listen_addr, uint16_t listen_port);
 
 private:
+    boost::asio::io_context io_context;
     boost::asio::ip::tcp::socket sockEtcd;
-
+    std::thread heart_beater;
 };
 
 
