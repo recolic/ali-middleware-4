@@ -13,6 +13,7 @@
 
 #include <json_serializer.hpp>
 #include <boost/asio.hpp>
+#include <boost_asio_quick_connect.hpp>
 
 class dubbo_client
 {
@@ -43,9 +44,7 @@ public:
         header.request_id = 0x19990713;
         header.data_length = (uint32_t)payload.size();
 
-        boost::asio::ip::tcp::socket sockServer(io_context);
-        boost::asio::ip::tcp::resolver resolver(io_context);
-        boost::asio::connect(sockServer, resolver.resolve(boost::asio::ip::tcp::resolver::query(server_addr, std::to_string(server_port))));
+        auto sockServer = boost::asio::quick_connect(io_context, server_addr, server_port);
 
         boost::asio::write(sockServer, boost::asio::buffer(&header, sizeof(header)));
         boost::asio::write(sockServer, payload);
