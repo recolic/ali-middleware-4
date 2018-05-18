@@ -12,7 +12,7 @@ include_directories(./lib)
 include_directories(./src)
 
 set(LIB_SRC lib/dubbo_client.hpp lib/kv_serializer.hpp lib/json_serializer.hpp lib/rlib/libr.cc lib/boost_asio_quick_connect.hpp)
-set(AGENT_SRC src/main.cc src/producer_agent.cc src/producer_agent.hpp src/consumer_agent.cc src/consumer_agent.hpp)
+set(AGENT_SRC src/main.cc src/producer_agent.cc src/producer_agent.hpp src/consumer_agent.cc src/consumer_agent.hpp src/producer_selector.cc src/producer_selector.hpp)
 
 add_executable(agent ${AGENT_SRC} ${LIB_SRC})
 
