@@ -44,6 +44,7 @@ public:
         header.request_id = 0x19990713;
         header.data_length = (uint32_t)payload.size();
 
+        // TODO: reuse connection.
         auto sockServer = boost::asio::quick_connect(io_context, server_addr, server_port);
 
         boost::asio::write(sockServer, boost::asio::buffer(&header, sizeof(header)));
