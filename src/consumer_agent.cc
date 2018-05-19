@@ -35,7 +35,7 @@ namespace consumer {
                 *(asio::yield_context *) nullptr)),
                 void>::value, "Error on deducting type for asio::spawn arg2.");
         rlog.info("Launching http server (consumer_agent) at {}:{}"_format(listen_addr, listen_port));
-        asio::spawn(io_context, std::bind(&agent::do_listen, this, endpoint, std::placeholders::_1));
+        asio::spawn(io_context, std::bind(&agent::do_listen, this, std::move(endpoint), std::placeholders::_1));
     }
 
     void agent::do_listen(tcp::endpoint endpoint, asio::yield_context yield) {
@@ -60,8 +60,8 @@ namespace consumer {
             if (ec)
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
             else
-                asio::spawn(acceptor.get_executor().context(),
-                            std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1));
+                // TODO: (Compilation error) What's the matter???????????????????????
+                asio::spawn(io_context, std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1));
         }
     }
 
@@ -87,7 +87,8 @@ namespace consumer {
         if (ec) ON_BOOST_ERROR(ec);
     }
 
-    void agent::on_request_arrive(http::request &&req, asio::yield_context &yield, bool *must_close_conn) {
+    void agent::on_request_arrive(http::request<http::string_body> &&req, asio::yield_context &yield,
+                                  bool *must_close_conn) {
 
     }
 

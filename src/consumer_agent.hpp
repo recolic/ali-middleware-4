@@ -36,8 +36,8 @@ namespace consumer {
         producer_selector selector;
         void do_listen(boost::asio::ip::tcp::endpoint endpoint, boost::asio::yield_context yield);
         void do_session(boost::asio::ip::tcp::socket conn, boost::asio::yield_context yield);
-        void
-        on_request_arrive(boost::beast::http::request &&req, boost::asio::yield_context &yield, bool *must_close_conn);
+        void on_request_arrive(boost::beast::http::request<boost::beast::http::string_body> &&req,
+                               boost::asio::yield_context &yield, bool *must_close_conn);
     };
 
 } // namespace consumer
