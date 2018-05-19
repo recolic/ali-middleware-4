@@ -7,6 +7,7 @@
 
 #include <consumer_agent.hpp>
 #include <string>
+#include <list>
 
 namespace consumer {
 
