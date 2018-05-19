@@ -11,6 +11,8 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 include_directories(./lib)
 include_directories(./src)
 
+add_definitions(-DBOOST_COROUTINES_NO_DEPRECATION_WARNING)
+
 set(LIB_SRC lib/dubbo_client.hpp lib/kv_serializer.hpp lib/json_serializer.hpp lib/rlib/libr.cc lib/boost_asio_quick_connect.hpp lib/http_forwarder.hpp)
 set(AGENT_SRC src/main.cc src/producer_agent.cc src/producer_agent.hpp src/consumer_agent.cc src/consumer_agent.hpp src/producer_selector.cc src/producer_selector.hpp)
 

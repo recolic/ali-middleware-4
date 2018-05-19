@@ -4,6 +4,9 @@
 
 #include <rlib/opt.hpp>
 #include <rlib/stdio.hpp>
+#include <rlib/log.hpp>
+
+rlib::logger rlog(stdout);
 
 using rlib::println;
 using namespace rlib::literals;
