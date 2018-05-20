@@ -4,6 +4,7 @@
 
 #include <consumer_agent.hpp>
 
+#include <boost/beast/http/error.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/asio/spawn.hpp>
@@ -97,7 +98,7 @@ namespace consumer {
         if (ec) ON_BOOST_ERROR(ec);
     }
 
-    http::response agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
+    http::response<http::string_body> agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
         std::string res_payload = "bad request";
 
         // Only serve GET request. Return 400 if not GET.

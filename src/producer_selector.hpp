@@ -8,7 +8,11 @@
 #include <consumer_agent.hpp>
 #include <string>
 #include <list>
-#include <boost/beast/core/flat_buffer.hpp>
+
+#include <boost/beast/http.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/asio.hpp>
+#include <boost/asio/spawn.hpp>
 
 namespace consumer {
 
