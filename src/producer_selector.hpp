@@ -22,8 +22,7 @@ namespace consumer {
         producer_info(boost::asio::io_context &ioContext, const std::string &addr, uint16_t port);
 
         inline boost::beast::http::response<string_body>
-        async_request(boost::asio::ip::tcp::socket &conn, boost::beast::http::request<string_body> &req,
-                      boost::asio::yield_context &handler) {
+        async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &handler) {
             boost::beast::http::async_write(conn, req, handler);
             boost::beast::http::response<string_body> res;
             boost::beast::http::async_read(conn, buffer, res, handler);

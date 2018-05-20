@@ -112,7 +112,12 @@ namespace consumer {
         }
 
         producer_info &producer = selector.query_once();
+        // Warning: slow step.
+        auto res = producer.async_request(req, yield);
 
+        res.set(http::field::server, "rHttp");
+        res.keep_alive(req.keep_alive());
+        return std::move(res);
     }
 
 #undef ON_BOOST_FATAL
