@@ -59,9 +59,18 @@ namespace consumer {
             acceptor.async_accept(conn, yield[ec]);
             if (ec)
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
-            else
+            else {
+                //std::_Bind_helper<0, void (consumer::agent::*)(tcp::socket, asio::yield_context), consumer::agent *, tcp::socket, std::_Placeholder<1> &>::type _fdebug = std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1);
+                //_fdebug(yield);
+                /*
+                 * consumer_agent.cc:64:17: error: no matching function for call to object of type 'std::_Bind_helper<0, void (agent::*)(tcp::socket, asio::yield_context),
+      consumer::agent *, tcp::socket, std::_Placeholder<1> &>::type' (aka '_Bind<void (consumer::agent::*(consumer::agent *,
+      boost::asio::basic_stream_socket<boost::asio::ip::tcp>, std::_Placeholder<1>))(boost::asio::basic_stream_socket<boost::asio::ip::tcp>,
+      boost::asio::basic_yield_context<boost::asio::executor_binder<void (*)(), boost::asio::executor> >)>')
+                 * */
                 // TODO: (Compilation error) What's the matter???????????????????????
                 asio::spawn(io_context, std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1));
+            }
         }
     }
 
@@ -76,10 +85,11 @@ namespace consumer {
                 break;
             if (ec) ON_BOOST_ERROR(ec);
 
-            bool must_close_conn = false;
-            on_request_arrive(std::move(req), yield, &must_close_conn);
+            auto response = handle_request(std::move(req), yield);
 
-            if (must_close_conn)
+            http::async_write(conn, response, yield[ec]);
+
+            if (!response.keep_alive())
                 break;
         }
 
@@ -87,8 +97,21 @@ namespace consumer {
         if (ec) ON_BOOST_ERROR(ec);
     }
 
-    void agent::on_request_arrive(http::request<http::string_body> &&req, asio::yield_context &yield,
-                                  bool *must_close_conn) {
+    http::response agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
+        std::string res_payload = "bad request";
+
+        // Only serve GET request. Return 400 if not GET.
+        if (req.method() != http::verb::get) {
+            http::response<http::string_body> res{http::status::bad_request, req.version()};
+            res.set(http::field::server, "rHttp");
+            res.set(http::field::content_type, "text/plain");
+            res.keep_alive(req.keep_alive());
+            res.body() = res_payload;
+            res.prepare_payload();
+            return std::move(res);
+        }
+
+        producer_info &producer = selector.query_once();
 
     }
 

@@ -8,18 +8,32 @@
 #include <consumer_agent.hpp>
 #include <string>
 #include <list>
+#include <boost/beast/core/flat_buffer.hpp>
 
 namespace consumer {
 
     // Manage connection to producer_agent servers. You must reuse these connections.
     class producer_info : rlib::noncopyable {
+        using string_body = boost::beast::http::string_body;
     public:
         producer_info() = delete;
+
+        // Connect to producer_agent and preserve connection.
         producer_info(boost::asio::io_context &ioContext, const std::string &addr, uint16_t port);
 
+        inline boost::beast::http::response<string_body>
+        async_request(boost::asio::ip::tcp::socket &conn, boost::beast::http::request<string_body> &req,
+                      boost::asio::yield_context &handler) {
+            boost::beast::http::async_write(conn, req, handler);
+            boost::beast::http::response<string_body> res;
+            boost::beast::http::async_read(conn, buffer, res, handler);
+            return std::move(res);
+        }
     private:
         boost::asio::io_context &io_context;
         boost::asio::ip::tcp::socket conn;
+
+        boost::beast::flat_buffer buffer;
 
         // Other data structure for burden level measurement.
     };
@@ -39,5 +53,6 @@ namespace consumer {
     };
 
 }
+
 
 #endif //ALI_MIDDLEWARE_AGENT_PRODUCER_SELECTOR_HPP
