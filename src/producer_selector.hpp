@@ -6,6 +6,7 @@
 #define ALI_MIDDLEWARE_AGENT_PRODUCER_SELECTOR_HPP
 
 #include <consumer_agent.hpp>
+#include <boost_asio_quick_connect.hpp>
 #include <string>
 #include <list>
 
@@ -23,7 +24,12 @@ namespace consumer {
         producer_info() = delete;
 
         // Connect to producer_agent and preserve connection.
-        producer_info(boost::asio::io_context &ioContext, const std::string &addr, uint16_t port);
+        producer_info(boost::asio::io_context &ioContext, const std::string &addr, uint16_t port)
+                : io_context(ioContext), conn(boost::asio::quick_connect(ioContext, addr, port)) {}
+
+        ~producer_info() {
+            conn.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+        }
 
         inline boost::beast::http::response<string_body>
         async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &handler) {
@@ -45,7 +51,7 @@ namespace consumer {
     public:
         producer_selector() = delete;
 
-        // Connect to etcd and fetch server list. You must use gRPC rather than REST API.
+        // Connect to etcd and fetch server list. You must use gRPC or REST API.
         producer_selector(const std::string &etcd_addr_and_port);
 
         // Select one producer to query, do auto-balance here.

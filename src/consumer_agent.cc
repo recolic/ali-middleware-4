@@ -46,7 +46,7 @@ namespace consumer {
         acceptor.open(endpoint.protocol(), ec);
         if (ec) ON_BOOST_FATAL(ec);
 
-        acceptor.set_option(boost::asio::socket_base::reuse_address(true));
+        acceptor.set_option(asio::socket_base::reuse_address(true));
         if (ec) ON_BOOST_FATAL(ec);
 
         acceptor.bind(endpoint, ec);
@@ -70,12 +70,15 @@ namespace consumer {
       boost::asio::basic_yield_context<boost::asio::executor_binder<void (*)(), boost::asio::executor> >)>')
                  * */
                 // TODO: (Compilation error) What's the matter???????????????????????
+                auto _fdebug = std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1);
+                _fdebug();
+                //type  std::_Bind<void (consumer::agent::*(consumer::agent *, socket, std::_Placeholder<1>))(socket&&, yield_context)>
                 asio::spawn(io_context, std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1));
             }
         }
     }
 
-    void agent::do_session(tcp::socket conn, asio::yield_context yield) {
+    void agent::do_session(tcp::socket &&conn, asio::yield_context yield) {
         boost::system::error_code ec;
         boost::beast::flat_buffer buffer;
 
