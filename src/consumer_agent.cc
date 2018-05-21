@@ -37,6 +37,12 @@ namespace consumer {
                 void>::value, "Error on deducting type for asio::spawn arg2.");
         rlog.info("Launching http server (consumer_agent) at {}:{}"_format(listen_addr, listen_port));
         asio::spawn(io_context, std::bind(&agent::do_listen, this, std::move(endpoint), std::placeholders::_1));
+
+        std::vector<std::thread> v;
+        v.reserve((size_t) threads - 1);
+        for (auto i = threads - 1; i > 0; --i)
+            v.emplace_back([this] { this->io_context.run(); });
+        io_context.run();
     }
 
     void agent::do_listen(tcp::endpoint endpoint, asio::yield_context yield) {
