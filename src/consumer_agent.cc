@@ -61,19 +61,18 @@ namespace consumer {
             if (ec)
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
             else {
-                //std::_Bind_helper<0, void (consumer::agent::*)(tcp::socket, asio::yield_context), consumer::agent *, tcp::socket, std::_Placeholder<1> &>::type _fdebug = std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1);
-                //_fdebug(yield);
                 /*
-                 * consumer_agent.cc:64:17: error: no matching function for call to object of type 'std::_Bind_helper<0, void (agent::*)(tcp::socket, asio::yield_context),
-      consumer::agent *, tcp::socket, std::_Placeholder<1> &>::type' (aka '_Bind<void (consumer::agent::*(consumer::agent *,
-      boost::asio::basic_stream_socket<boost::asio::ip::tcp>, std::_Placeholder<1>))(boost::asio::basic_stream_socket<boost::asio::ip::tcp>,
-      boost::asio::basic_yield_context<boost::asio::executor_binder<void (*)(), boost::asio::executor> >)>')
-                 * */
-                // TODO: (Compilation error) What's the matter???????????????????????
-                auto _fdebug = std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1);
-                _fdebug();
-                //type  std::_Bind<void (consumer::agent::*(consumer::agent *, socket, std::_Placeholder<1>))(socket&&, yield_context)>
-                asio::spawn(io_context, std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1));
+                 * std::bind doesn't allow rvalue (ref) so this version doesn't work.
+                 * auto _fdebug = std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1);
+                 * typeof(_fdebug) is std::_Bind<void (consumer::agent::*(consumer::agent *, socket, std::_Placeholder<1>))(socket&&, yield_context)>
+                 *
+                 * But solution below works, and why? (https://stackoverflow.com/questions/4871273/passing-rvalues-through-stdbind)
+                 * auto _fdebug = std::bind(&agent::do_session, this, std::bind(static_cast<tcp::socket&&(&)(tcp::socket&)>(std::move<tcp::socket&>), std::move(conn)), std::placeholders::_1);
+                 * _fdebug(yield);
+                 *
+                 * asio::spawn(io_context, std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1));
+                 */
+                asio::spawn(io_context, std::bind(&agent::do_session, this, std::bind(static_cast<tcp::socket&&(&)(tcp::socket&)>(std::move<tcp::socket&>), std::move(conn)), std::placeholders::_1));
             }
         }
     }
