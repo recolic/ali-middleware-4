@@ -38,6 +38,7 @@ Args:
         exit(1);
     };
 
+    rlog.set_log_level(rlib::log_level_t::DEBUG);
     if(argc == 1)
         help_and_exit();
 
@@ -62,6 +63,7 @@ Args:
         //auto debug_server_port = opt.getValueArg("--debug-server-port", false, "0").as<uint16_t>();
 
         consumer::agent agent("{}:{}"_format(etcd_addr, etcd_port));
+        rlog.debug("Agent initialize done.");
         agent.listen(listen_addr, listen_port);
     }
     else {

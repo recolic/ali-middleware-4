@@ -34,29 +34,41 @@ namespace consumer {
 
         // Connect to producer_agent and preserve connection.
         producer_info(boost::asio::io_context &ioContext, const std::string &addr, uint16_t port)
-                : io_context(ioContext), conn(boost::asio::quick_connect(ioContext, addr, port))
+                : io_context(ioContext), conn(boost::asio::quick_connect(ioContext, addr, port)),
+                  hostname(addr)
         {}
 
         // Auto-generated move constructor is ambiguous.
         producer_info(producer_info &&another)
-                : io_context(another.io_context), conn(std::move(another.conn)), buffer(std::move(another.buffer))
+                : io_context(another.io_context), conn(std::move(another.conn)),
+                  buffer(std::move(another.buffer)), hostname(std::move(another.hostname))
         {}
 
         ~producer_info() {
-            conn.shutdown(boost::asio::ip::tcp::socket::shutdown_both);
+            boost::system::error_code ec;
+            conn.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
         }
 
         inline boost::beast::http::response<string_body>
         async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &handler) {
+            rlog.debug("requesting...");
+            // TODO: bug here: async_write never return.
             boost::beast::http::async_write(conn, req, handler);
+            rlog.debug("wrote...");
             boost::beast::http::response<string_body> res;
             boost::beast::http::async_read(conn, buffer, res, handler);
+            rlog.debug("read done, returning...");
             return std::move(res);
+        }
+
+        const std::string &get_host() const {
+            return hostname;
         }
 
     private:
         boost::asio::io_context &io_context;
         boost::asio::ip::tcp::socket conn;
+        std::string hostname;
 
         boost::beast::flat_buffer buffer;
 
@@ -73,6 +85,7 @@ namespace consumer {
             rlog.info("(fake_connect) connecting to etcd server {}."_format(etcd_addr_and_port));
             rlog.info("(fake_connect) initializing server list as {}:{}."_format(RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT));
             producers.push_back(producer_info(io_context, RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT));
+            rlog.debug("selector constructor done.");
         }
 
         producer_info &query_once() {

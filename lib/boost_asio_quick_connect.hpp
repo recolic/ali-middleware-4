@@ -3,6 +3,11 @@
 
 #include <boost/asio.hpp>
 
+#include <rlib/log.hpp>
+
+using rlib::literals::operator ""_format;
+extern rlib::logger rlog;
+
 namespace boost {
     namespace asio {
         inline boost::asio::ip::tcp::socket
@@ -10,8 +15,10 @@ namespace boost {
             boost::asio::ip::tcp::socket sock(io_context);
             boost::asio::ip::tcp::resolver resolver(io_context);
 
+            rlog.verbose_info("Connecting to {}:{}"_format(addr, port));
             boost::asio::connect(sock,
                                  resolver.resolve(boost::asio::ip::tcp::resolver::query(addr, std::to_string(port))));
+            rlog.verbose_info("Connected.");
             return sock;
         }
     }

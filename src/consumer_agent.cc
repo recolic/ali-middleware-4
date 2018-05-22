@@ -86,6 +86,7 @@ namespace consumer {
     void agent::do_session(tcp::socket &&conn, asio::yield_context yield) {
         boost::system::error_code ec;
         boost::beast::flat_buffer buffer;
+        rlog.debug("session launched.");
 
         while (true) {
             http::request<http::string_body> req;
@@ -107,6 +108,7 @@ namespace consumer {
     }
 
     http::response<http::string_body> agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
+        rlog.debug("handle_request");
         std::string res_payload = "bad request";
 
         // Only serve GET request. Return 400 if not GET.
@@ -121,11 +123,13 @@ namespace consumer {
         }
 
         producer_info &producer = selector.query_once();
-        // Warning: slow step.
+        req.set(http::field::user_agent, "rHttp");
+        req.set(http::field::host, producer.get_host());
         auto res = producer.async_request(req, yield);
 
         res.set(http::field::server, "rHttp");
         res.keep_alive(req.keep_alive());
+        rlog.debug("handle_request done.");
         return std::move(res);
     }
 
