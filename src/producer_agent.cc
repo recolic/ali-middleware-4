@@ -6,8 +6,7 @@
 
 namespace producer {
 
-    agent::agent(const std::string &etcd_addr, uint16_t etcd_port)
-            : sockEtcd(io_context) {
+    agent::agent(const std::string &etcd_addr_and_port) {
         // TODO: Connect to etcd, register myself. Launch heartbeat thread.
     }
 

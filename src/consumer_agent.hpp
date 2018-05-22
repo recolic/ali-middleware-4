@@ -5,6 +5,9 @@
 #ifndef ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP
 #define ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP
 
+#include <producer_selector.hpp>
+#define ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP_
+
 #include <rlib/class_decorator.hpp>
 #include <rlib/log.hpp>
 
@@ -12,7 +15,6 @@
 #include <boost/asio.hpp>
 #include <boost/coroutine2/coroutine.hpp>
 
-#include <producer_selector.hpp>
 #include <boost/asio/spawn.hpp>
 #include <boost/beast/http.hpp>
 
