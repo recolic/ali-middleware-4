@@ -28,7 +28,7 @@ namespace consumer {
 
         // Initialize producer_selector and it will connect to etcd now.
         agent(const std::string &etcd_addr_and_port, int threads = 1)
-                : selector(etcd_addr_and_port), io_context(threads), threads(threads) {}
+                : io_context(threads), selector(io_context, etcd_addr_and_port), threads(threads) {}
 
         // Launch http server and listen for requests from consumer.
         [[noreturn]] void listen(const std::string &listen_addr, uint16_t listen_port);

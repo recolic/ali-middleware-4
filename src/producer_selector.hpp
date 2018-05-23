@@ -51,16 +51,15 @@ namespace consumer {
         async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &yield) {
             boost::system::error_code ec;
             boost::beast::http::response<string_body> res;
-            rlog.debug("requesting...");
+            rlog.debug("Requesting...");
             boost::beast::http::async_write(conn, req, yield[ec]);
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
                 return std::move(res);
             }
-            rlog.debug("wrote...");
             boost::beast::http::async_read(conn, buffer, res, yield[ec]);
             if (ec) RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
-            rlog.debug("read done, returning...");
+            rlog.debug("Success.");
             return std::move(res);
         }
 
@@ -78,13 +77,14 @@ namespace consumer {
         // Other data structure for burden level measurement.
     };
 
-    class producer_selector {
+    class producer_selector : rlib::noncopyable {
     public:
         producer_selector() = delete;
 
 #ifdef PRODUCER_SELECTOR_UNFINISHED
 
-        producer_selector(const std::string &etcd_addr_and_port) {
+        producer_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
+                : io_context(io_context) {
             rlog.info("(fake_connect) connecting to etcd server {}."_format(etcd_addr_and_port));
             rlog.info("(fake_connect) initializing server list as {}:{}."_format(RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT));
             producers.push_back(producer_info(io_context, RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT));
@@ -106,7 +106,7 @@ namespace consumer {
 
     private:
         std::list<producer_info> producers;
-        boost::asio::io_context io_context;
+        boost::asio::io_context &io_context;
     };
 
 }
