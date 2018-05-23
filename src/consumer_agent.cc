@@ -10,6 +10,7 @@
 #include <boost/asio/spawn.hpp>
 
 #include <functional>
+#include <logger.hpp>
 
 using string_view = boost::beast::string_view;
 namespace http = boost::beast::http;
@@ -21,11 +22,6 @@ using tcp = ip::tcp;
 using namespace rlib::literals;
 
 namespace consumer {
-#define ON_BOOST_FATAL(ec) do { RBOOST_LOG_EC(ec, rlib::log_level_t::FATAL); \
-        throw std::runtime_error(ec.message()); } while(false)
-#define ON_BOOST_ERROR(ec) do { RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR); \
-        return; } while(false)
-#define RBOOST_LOG_EC(ec, level) rlog.log("boost error at {}:{}, {}"_format(__FILE__, __LINE__, ec.message()), level)
 
     [[noreturn]] void agent::listen(const std::string &listen_addr, uint16_t listen_port) {
         // TODO: Launch http server and forward requests.
@@ -109,7 +105,6 @@ namespace consumer {
 
     http::response<http::string_body> agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
         rlog.debug("handle_request");
-        std::string res_payload = "bad request";
 
         // Only serve GET request. Return 400 if not GET.
         if (req.method() != http::verb::get) {
@@ -117,7 +112,7 @@ namespace consumer {
             res.set(http::field::server, "rHttp");
             res.set(http::field::content_type, "text/plain");
             res.keep_alive(req.keep_alive());
-            res.body() = res_payload;
+            res.body() = "bad request";
             res.prepare_payload();
             return std::move(res);
         }
@@ -133,7 +128,4 @@ namespace consumer {
         return std::move(res);
     }
 
-#undef ON_BOOST_FATAL
-#undef ON_BOOST_ERROR
-#undef RBOOST_LOG_EC
 }

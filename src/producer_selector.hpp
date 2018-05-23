@@ -11,6 +11,7 @@
 
 #include <rlib/log.hpp>
 #include <rlib/macro.hpp>
+#include <logger.hpp>
 
 #include <boost/beast/http.hpp>
 #include <boost/beast/core.hpp>
@@ -20,9 +21,6 @@
 #ifdef ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP_
 #error consumer_agent.hpp must not be included before producer_selector.hpp.
 #endif
-
-using rlib::literals::operator ""_format;
-extern rlib::logger rlog;
 
 namespace consumer {
 
@@ -50,13 +48,18 @@ namespace consumer {
         }
 
         inline boost::beast::http::response<string_body>
-        async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &handler) {
-            rlog.debug("requesting...");
-            // TODO: bug here: async_write never return.
-            boost::beast::http::async_write(conn, req, handler);
-            rlog.debug("wrote...");
+        async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &yield) {
+            boost::system::error_code ec;
             boost::beast::http::response<string_body> res;
-            boost::beast::http::async_read(conn, buffer, res, handler);
+            rlog.debug("requesting...");
+            boost::beast::http::async_write(conn, req, yield[ec]);
+            if (ec) {
+                RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
+                return std::move(res);
+            }
+            rlog.debug("wrote...");
+            boost::beast::http::async_read(conn, buffer, res, yield[ec]);
+            if (ec) RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
             rlog.debug("read done, returning...");
             return std::move(res);
         }
