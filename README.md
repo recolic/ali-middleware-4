@@ -1,5 +1,5 @@
 
-# Ali-middleware
+# Ali-middleware [![Build Status](https://travis-ci.com/recolic/ali-middleware.svg?token=e2iEcAqqTormZesZdC1C&branch=master)](https://travis-ci.com/recolic/ali-middleware)
 
 > [Offical Document](https://code.aliyun.com/middlewarerace2018/docs)
 

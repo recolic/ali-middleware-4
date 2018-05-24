@@ -1,5 +1,5 @@
 language: cpp
-script: cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make
+script: mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make
 
 matrix:
   include:
