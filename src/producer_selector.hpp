@@ -39,7 +39,7 @@ namespace consumer {
         // Auto-generated move constructor is ambiguous.
         producer_info(producer_info &&another)
                 : io_context(another.io_context), conn(std::move(another.conn)),
-                  buffer(std::move(another.buffer)), hostname(std::move(another.hostname))
+                  hostname(std::move(another.hostname))
         {}
 
         ~producer_info() {
@@ -57,6 +57,7 @@ namespace consumer {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
                 return std::move(res);
             }
+            boost::beast::flat_buffer buffer;
             boost::beast::http::async_read(conn, buffer, res, yield[ec]);
             if (ec) RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
             rlog.debug("Success.");
@@ -71,8 +72,6 @@ namespace consumer {
         boost::asio::io_context &io_context;
         boost::asio::ip::tcp::socket conn;
         std::string hostname;
-
-        boost::beast::flat_buffer buffer;
 
         // Other data structure for burden level measurement.
     };

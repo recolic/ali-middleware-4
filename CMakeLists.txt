@@ -22,7 +22,7 @@ add_definitions(-DBOOST_COROUTINES_NO_DEPRECATION_WARNING)
 add_definitions(-DPRODUCER_SELECTOR_UNFINISHED)
 
 add_definitions(-DAGENT_VERSION=1.0.0)
-add_definitions(-DDEBUG_SERVER_ADDR=recolic.net)
+add_definitions(-DDEBUG_SERVER_ADDR=www.baidu.com)
 add_definitions(-DDEBUG_SERVER_PORT=80)
 
 include_directories(./lib)

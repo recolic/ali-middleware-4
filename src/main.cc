@@ -67,6 +67,7 @@ Args:
         agent.listen(listen_addr, listen_port);
     }
     else {
+        rlog.fatal("Role must be consumer or producer-*, rather than `{}`."_format(whoami));
         help_and_exit();
     }
 
