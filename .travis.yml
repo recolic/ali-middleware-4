@@ -20,7 +20,7 @@ before_install:
     - wget https://cmake.org/files/v3.11/cmake-3.11.2-Linux-x86_64.sh && chmod +x cmake-3.11.2-Linux-x86_64.sh
     - ./cmake-3.11.2-Linux-x86_64.sh --prefix=$HOME/usr --exclude-subdir --skip-license
     - wget "https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.tar.bz2" && tar -xjf boost_1_66_0.tar.bz2
-    - cd boost_1_66_0 && echo "Building boost..." && ./bootstrap.sh > /dev/null && ./b2 install > /dev/null
+    - cd boost_1_66_0 && echo "Building boost..." && ./bootstrap.sh --with-libraries=coroutine,system && ./b2 install
 
 addons:
   apt:
