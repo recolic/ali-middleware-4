@@ -103,6 +103,9 @@ namespace consumer {
         // Select one producer to query, do auto-balance here.
         // Determine which producer to query. Potential performance bottleneck here, MUST BE QUICK!
         producer_info &query_once();
+
+    private:
+        etcd_service etcd;
 #endif
 
 
@@ -110,7 +113,6 @@ namespace consumer {
         std::list<producer_info> producers;
         boost::asio::io_context &io_context;
 
-        etcd_service etcd;
     };
 
 }

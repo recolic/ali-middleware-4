@@ -35,6 +35,6 @@ private:
     boost::asio::ip::tcp::socket conn;
 
     std::vector<std::pair<key_type, value_type>> cache;
-
+};
 
 #endif //ALI_MIDDLEWARE_AGENT_ETCD_SERVICE_HPP
