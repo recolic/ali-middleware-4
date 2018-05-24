@@ -17,6 +17,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
+#include "etcd_service.hpp"
 
 #ifdef ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP_
 #error consumer_agent.hpp must not be included before producer_selector.hpp.
@@ -93,9 +94,14 @@ namespace consumer {
         }
 #else
         // Connect to etcd and fetch server list. You must use gRPC or REST API.
-        producer_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port);
+        producer_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
+            : etcd(etcd_addr_and_port) {
+            auto producer_list = etcd.get_list();
+            // Construct this->producers from information in producer_list. Burden auto-balance data structure must also be added to producer_info.
+        }
 
         // Select one producer to query, do auto-balance here.
+        // Determine which producer to query. Potential performance bottleneck here, MUST BE QUICK!
         producer_info &query_once();
 #endif
 
@@ -103,6 +109,8 @@ namespace consumer {
     private:
         std::list<producer_info> producers;
         boost::asio::io_context &io_context;
+
+        etcd_service etcd;
     };
 
 }

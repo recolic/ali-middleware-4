@@ -19,7 +19,7 @@
  * So producers just call set one by one, and consumer call get and decode server list.
  */
 template<bool is_producer>
-class etcd_kv_service : rlib::noncopyable {
+class [[deprecated]] etcd_kv_service : rlib::noncopyable {
 public:
     using key_type = std::string;
     using value_type = std::string; // Maybe you want to set value_type to list<string>. Implement it by yourself!
