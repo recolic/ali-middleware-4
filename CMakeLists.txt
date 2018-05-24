@@ -35,7 +35,7 @@ find_package(Boost 1.66.0 REQUIRED system coroutine)
 include_directories(${Boost_INCLUDE_DIRS})
 
 set(LIB_SRC lib/dubbo_client.hpp lib/kv_serializer.hpp lib/json_serializer.hpp lib/rlib/libr.cc lib/boost_asio_quick_connect.hpp)
-set(AGENT_SRC src/main.cc src/producer_agent.cc src/producer_agent.hpp src/consumer_agent.cc src/consumer_agent.hpp src/producer_selector.cc src/producer_selector.hpp src/logger.hpp)
+set(AGENT_SRC src/main.cc src/producer_agent.cc src/producer_agent.hpp src/consumer_agent.cc src/consumer_agent.hpp src/producer_selector.cc src/producer_selector.hpp src/logger.hpp src/etcd_kv_service.cc src/etcd_kv_service.hpp)
 
 add_executable(agent ${AGENT_SRC} ${LIB_SRC})
 

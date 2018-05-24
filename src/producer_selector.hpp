@@ -81,22 +81,19 @@ namespace consumer {
         producer_selector() = delete;
 
 #ifdef PRODUCER_SELECTOR_UNFINISHED
-
         producer_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
                 : io_context(io_context) {
             rlog.info("(fake_connect) connecting to etcd server {}."_format(etcd_addr_and_port));
             rlog.info("(fake_connect) initializing server list as {}:{}."_format(RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT));
             producers.push_back(producer_info(io_context, RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT));
-            rlog.debug("selector constructor done.");
         }
 
         producer_info &query_once() {
             return *producers.begin();
         }
-
 #else
         // Connect to etcd and fetch server list. You must use gRPC or REST API.
-        producer_selector(const std::string &etcd_addr_and_port);
+        producer_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port);
 
         // Select one producer to query, do auto-balance here.
         producer_info &query_once();
