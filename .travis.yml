@@ -12,17 +12,15 @@ matrix:
           packages:
             - gcc-7
             - g++-7
-            - libboost1.54-all-dev
       env:
         - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7"
 
 before_install:
-    - eval "${MATRIX_EVAL}"
-    - mkdir $HOME/usr
-    - export PATH="$HOME/usr/bin:$PATH"
-    - wget https://cmake.org/files/v3.11/cmake-3.11.2-Linux-x86_64.sh
-    - chmod +x cmake-3.11.2-Linux-x86_64.sh
+    - eval "${MATRIX_EVAL}" && mkdir $HOME/usr && export PATH="$HOME/usr/bin:$PATH"
+    - wget https://cmake.org/files/v3.11/cmake-3.11.2-Linux-x86_64.sh && chmod +x cmake-3.11.2-Linux-x86_64.sh
     - ./cmake-3.11.2-Linux-x86_64.sh --prefix=$HOME/usr --exclude-subdir --skip-license
+    - wget "https://dl.bintray.com/boostorg/release/1.66.0/source/boost_1_66_0.tar.bz2" && tar -xvjf boost_1_66_0.tar.bz2
+    - cd boost_1_66_0 && ./bootstrap.sh && ./b2 install
 
 addons:
   apt:

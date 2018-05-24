@@ -30,7 +30,8 @@ include_directories(./src)
 
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Threads REQUIRED)
-find_package(Boost REQUIRED system coroutine)
+# boost::beast only exists in boost>1.66
+find_package(Boost 1.66.0 REQUIRED system coroutine)
 include_directories(${Boost_INCLUDE_DIRS})
 
 set(LIB_SRC lib/dubbo_client.hpp lib/kv_serializer.hpp lib/json_serializer.hpp lib/rlib/libr.cc lib/boost_asio_quick_connect.hpp)
