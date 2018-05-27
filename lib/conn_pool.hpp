@@ -212,9 +212,8 @@ namespace rlib {
     public:
         fixed_object_pool() = delete;
 
-        fixed_object_pool(size_t max_size, const std::function<void(obj_t *)> &on_construct,
-                          const std::function<void(obj_t *)> &on_destruct)
-                : max_size(max_size), on_construct(on_construct), on_destruct(on_destruct) {}
+        fixed_object_pool(size_t max_size)
+            : max_size(max_size) {}
 
         // `new` an object. Return nullptr if pool is full.
         obj_t *try_borrow_one() {
@@ -235,16 +234,33 @@ namespace rlib {
             }
             return nullptr;
         }
-        void release_one(obj_t *which) {}
+        obj_t *borrow_one() {
+            while(true) {
+                    auto result = try_borrow_one();
+                    if(result)
+                        return result;
+                    // Not available. Wait for release_one.
+                {
+                    std::unique_lock<std::mutex> lk;
+                    borrow_cv.wait(lk, [this]{return this->new_obj_ready;})
+                }
+
+            }
+        }
+        void release_one(obj_t *which) {
+            std::lock_guard<std::mutex> _l(buffer_mutex);
+            free_list.push_front(which);
+            buffer::iterator(which).get_extra_info() = true; // mark as free.
+        }
 
     private:
         size_t max_size = 0;
-        std::function<void(obj_t *)> on_construct;
-        std::function<void(obj_t *)> on_destruct;
 
         buffer_t buffer; // list<obj_t obj, bool is_free>
         std::list<obj_t *> free_list;
         std::mutex buffer_mutex;
+        std::conditional_variable borrow_cv;
+        volatile bool new_obj_ready = false;
     };
 }
 
