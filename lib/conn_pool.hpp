@@ -6,9 +6,7 @@
 #include <mutex>
 #include <utility>
 #include <functional>
-#include <deque>
-#include <unordered_map>
-#include <algorithm>
+#include <list>
 
 namespace rlib {
     namespace impl {
@@ -100,6 +98,13 @@ namespace rlib {
                 node *_impl_tail = nullptr; // If this iter is created by begin() or end(), it must set this ptr to support end().operator--(), to indicate that this iterator is not invalid.
             };
 
+            ~traceable_list() {
+                for (auto iter = begin(); iter != end();) {
+                    auto to_release = iter++;
+                    delete to_release.ptr;
+                }
+            }
+
             iterator begin() {
                 return iterator(head, tail);
             }
@@ -108,8 +113,9 @@ namespace rlib {
                 return iterator((node *) nullptr, tail);
             }
 
-            void push_one(const iterator &where, const T &data, const extra_info_t &extra_info) {
-                auto new_node = new node{data, nullptr, where.ptr, extra_info};
+            void push_one(const iterator &where, T &&data, const extra_info_t &extra_info) {
+                auto new_node = new node{std::forward<T>(data), nullptr, where.ptr, extra_info};
+                ++m_size;
                 if (!head) {
                     tail = head = new_node;
                     return;
@@ -132,12 +138,25 @@ namespace rlib {
                     head = new_node;
             }
 
+            void push_one(const iterator &where, const T &data, const extra_info_t &extra_info) {
+                T _data(data);
+                push_one(where, std::move(_data), extra_info);
+            }
+
+            void push_back(T &&data, const extra_info_t &extra_info) {
+                push_one(end(), std::forward<T>(data), extra_info);
+            }
+
             void push_back(const T &data, const extra_info_t &extra_info) {
-                push_one(end(), data, extra_info);
+                push_one(end(), std::forward<T>(data), extra_info);
+            }
+
+            void push_front(T &&data, const extra_info_t &extra_info) {
+                push_one(begin(), std::forward<T>(data), extra_info);
             }
 
             void push_front(const T &data, const extra_info_t &extra_info) {
-                push_one(begin(), data, extra_info);
+                push_one(begin(), std::forward<T>(data), extra_info);
             }
 
             void pop_one(const iterator &which) {
@@ -156,6 +175,7 @@ namespace rlib {
                     head = right;
                 if (tail == ptr)
                     tail = left;
+                --m_size;
                 delete which.ptr;
             }
 
@@ -174,27 +194,56 @@ namespace rlib {
                 }
             }
 
+            size_t size() {
+                return m_size;
+            }
+
         private:
             node *head = nullptr;
             node *tail = nullptr;
+            size_t m_size = 0;
         };
     }
 
     template <typename obj_t>
     class fixed_object_pool : rlib::noncopyable {
+        using buffer_t = impl::traceable_list<obj_t, bool>;
     public:
         fixed_object_pool() = delete;
 
-        //fixed_object_pool() noexcept {}
-        void preserve(size_t size) {}
+        fixed_object_pool(size_t max_size, const std::function<void(obj_t *)> &on_construct,
+                          const std::function<void(obj_t *)> &on_destruct)
+                : max_size(max_size), on_construct(on_construct), on_destruct(on_destruct) {}
 
-        // `new` an object. Blocked if pool is full.
-        obj_t *create_one() {}
+        // `new` an object. Return nullptr if pool is full.
+        obj_t *try_borrow_one() {
+            std::lock_guard<std::mutex> _l(buffer_mutex);
+            // Optimize here if is performance bottleneck (lockless list... etc...)
+            borrow_again:
+            if (free_list.size() > 0) {
+                // Some object is free. Just return one.
+                obj_t *result = *free_list.begin();
+                free_list.pop_front();
+                buffer_t::iterator(result).get_extra_info() = false; // mark as busy.
+                return result;
+            }
+            if (buffer.size() < max_size) {
+                buffer.push_back(obj_t(), true);
+                free_list.push_back(&*--buffer.end());
+                goto borrow_again;
+            }
+            return nullptr;
+        }
         void release_one(obj_t *which) {}
 
     private:
-        size_t size = 0;
-        std::unordered_map<obj_t *, std::pair<bool, obj_t>> buffer;
+        size_t max_size = 0;
+        std::function<void(obj_t *)> on_construct;
+        std::function<void(obj_t *)> on_destruct;
+
+        buffer_t buffer; // list<obj_t obj, bool is_free>
+        std::list<obj_t *> free_list;
+        std::mutex buffer_mutex;
     };
 }
 
