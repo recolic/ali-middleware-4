@@ -7,6 +7,7 @@
 #include <utility>
 #include <functional>
 #include <list>
+#include <algorithm>
 
 namespace rlib {
     namespace impl {
