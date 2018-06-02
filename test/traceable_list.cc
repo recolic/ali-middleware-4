@@ -2,7 +2,7 @@
 // Created by recolic on 18-5-27.
 //
 
-#include <conn_pool.hpp>
+#include <pool.hpp>
 #include <rlib/stdio.hpp>
 
 using namespace rlib;

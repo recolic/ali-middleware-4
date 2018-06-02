@@ -34,14 +34,14 @@ find_package(Threads REQUIRED)
 find_package(Boost 1.66.0 REQUIRED system coroutine)
 include_directories(${Boost_INCLUDE_DIRS})
 
-set(LIB_SRC lib/dubbo_client.hpp lib/kv_serializer.hpp lib/json_serializer.hpp lib/rlib/libr.cc lib/boost_asio_quick_connect.hpp lib/conn_pool.hpp)
+set(LIB_SRC lib/dubbo_client.hpp lib/kv_serializer.hpp lib/json_serializer.hpp lib/rlib/libr.cc lib/boost_asio_quick_connect.hpp lib/pool.hpp)
 set(AGENT_SRC src/main.cc src/producer_agent.cc src/producer_agent.hpp src/consumer_agent.cc src/consumer_agent.hpp src/producer_selector.cc src/producer_selector.hpp src/logger.hpp src/etcd_service.cc src/etcd_service.hpp)
 
 add_executable(agent ${AGENT_SRC} ${LIB_SRC})
 
 add_executable(test-serialize test/serialize.cc lib/kv_serializer.hpp lib/json_serializer.hpp lib/rlib/libr.cc)
-add_executable(test-traceable-list test/traceable_list.cc lib/conn_pool.hpp lib/rlib/libr.cc)
-add_executable(test-conn-pool test/pool.cc lib/conn_pool.hpp lib/rlib/libr.cc)
+add_executable(test-traceable-list test/traceable_list.cc lib/pool.hpp lib/rlib/libr.cc)
+add_executable(test-conn-pool test/pool.cc lib/pool.hpp lib/rlib/libr.cc)
 
 target_link_libraries(agent Threads::Threads)
 target_link_libraries(agent Boost::system)
