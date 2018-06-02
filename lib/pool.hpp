@@ -8,6 +8,7 @@
 #include <functional>
 #include <list>
 #include <algorithm>
+#include <condition_variable>
 
 namespace rlib {
     namespace impl {
@@ -226,9 +227,9 @@ namespace rlib {
                 return result;
             // Not available. Wait for release_one.
             std::unique_lock<std::mutex> lk;
-            borrow_cv.wait(lk, [this]{return this->new_obj_ready;})
+            borrow_cv.wait(lk, [this]{return this->new_obj_ready;});
             // TODO: dead lock to solve.
-            auto result = do_try_borrow_one();
+            result = do_try_borrow_one();
             lk.unlock();
             if(!result)
                 throw std::logic_error("unknown par error.");
@@ -238,7 +239,7 @@ namespace rlib {
             {
                 std::lock_guard<std::mutex> _l(buffer_mutex);
                 free_list.push_front(which);
-                buffer::iterator(which).get_extra_info() = true; // mark as free.
+                buffer_t::iterator(which).get_extra_info() = true; // mark as free.
                 new_obj_ready = true;
             } // lock released.
             borrow_cv.notify_one();
@@ -250,7 +251,7 @@ namespace rlib {
         buffer_t buffer; // list<obj_t obj, bool is_free>
         std::list<obj_t *> free_list;
         std::mutex buffer_mutex;
-        std::conditional_variable borrow_cv;
+        std::condition_variable borrow_cv;
         volatile bool new_obj_ready = false;
 
         // try_borrow_one without lock. 
