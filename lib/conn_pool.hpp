@@ -12,7 +12,7 @@
 namespace consumer {
     class pooled_conn {
     public:
-        pooled_conn(boost::asio::io_context &ioc, const std::string &addr, uint16_t port)
+        pooled_conn(boost::asio::io_context &ioc, std::string addr, uint16_t port)
                 : conn(boost::asio::quick_connect(ioc, addr, port)) {}
 
         pooled_conn(pooled_conn &&another) : conn(std::move(another.conn)) {}
@@ -30,7 +30,7 @@ namespace consumer {
         boost::asio::ip::tcp::socket conn;
     };
 
-    using conn_pool = rlib::fixed_object_pool<pooled_conn, 256, boost::asio::io_context &, const std::string &, uint16_t>;
+    using conn_pool = rlib::fixed_object_pool<pooled_conn, 256, boost::asio::io_context &, std::string, uint16_t>;
 }
 
 

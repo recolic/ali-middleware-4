@@ -11,6 +11,10 @@
 #include <algorithm>
 #include <condition_variable>
 
+#include <rlib/stdio.hpp>
+
+using namespace rlib::literals;
+
 namespace rlib {
     namespace impl {
         // A double linked list with ability to get iterator from data_t*. Designed for *_object_pool.
@@ -209,8 +213,10 @@ namespace rlib {
         using buffer_t = impl::traceable_list<obj_t, bool>;
         using this_type = fixed_object_pool<obj_t, max_size, _bound_construct_args_t ...>;
     public:
-        explicit fixed_object_pool(_bound_construct_args_t &&... _args)
-                : _bound_args(std::forward<_bound_construct_args_t>(_args) ...) {}
+        explicit fixed_object_pool(_bound_construct_args_t ... _args)
+                : _bound_args(std::forward<_bound_construct_args_t>(_args) ...) {
+            rlib::println("bound arg2 is {}"_format(std::get<1>(_bound_args)));
+        }
 //        fixed_object_pool(this_type &&another)
 //                : _bound_args(std::forward<_bound_construct_args_t>(another._bound_args) ...),
 //                  buffer(std::move(another.buffer)), free_list(std::move(another.free_list)),

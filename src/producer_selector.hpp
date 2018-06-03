@@ -33,7 +33,7 @@ namespace consumer {
         producer_info() = delete;
 
         // Connect to producer_agent and preserve connection.
-        producer_info(boost::asio::io_context &ioContext, const std::string &addr, uint16_t port)
+        producer_info(boost::asio::io_context &ioContext, std::string addr, uint16_t port)
                 : io_context(ioContext), hostname(addr), pconns(new conn_pool(ioContext, addr, (uint16_t) port))
         {}
 
