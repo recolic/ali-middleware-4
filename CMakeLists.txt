@@ -47,3 +47,4 @@ target_link_libraries(agent Threads::Threads)
 target_link_libraries(agent Boost::system)
 target_link_libraries(agent Boost::coroutine)
 
+target_link_libraries(test-conn-pool Threads::Threads)

@@ -30,9 +30,9 @@ namespace rlib {
             class iterator : std::bidirectional_iterator_tag {
                 friend class traceable_list;
             public:
-                iterator(node *ptr) : ptr(ptr) {}
+                explicit iterator(node *ptr) : ptr(ptr) {}
 
-                iterator(T *data_pointer) : ptr(reinterpret_cast<node *>(data_pointer)) {}
+                explicit iterator(T *data_pointer) : ptr(reinterpret_cast<node *>(data_pointer)) {}
                 T &operator*() {
                     // If this is an iterator to empty_list.begin(), then nullptr->data throws.
                     return ptr->data;
@@ -226,9 +226,8 @@ namespace rlib {
             if(result)
                 return result;
             // Not available. Wait for release_one.
-            std::unique_lock<std::mutex> lk;
+            std::unique_lock<std::mutex> lk(buffer_mutex);
             borrow_cv.wait(lk, [this]{return this->new_obj_ready;});
-            // TODO: dead lock to solve.
             result = do_try_borrow_one();
             lk.unlock();
             if(!result)
@@ -239,7 +238,8 @@ namespace rlib {
             {
                 std::lock_guard<std::mutex> _l(buffer_mutex);
                 free_list.push_front(which);
-                buffer_t::iterator(which).get_extra_info() = true; // mark as free.
+                typename buffer_t::iterator elem_iter(which);
+                elem_iter.get_extra_info() = true; // mark as free.
                 new_obj_ready = true;
             } // lock released.
             borrow_cv.notify_one();
@@ -262,12 +262,14 @@ namespace rlib {
                 // Some object is free. Just return one.
                 obj_t *result = *free_list.begin();
                 free_list.pop_front();
-                buffer_t::iterator(result).get_extra_info() = false; // mark as busy.
+
+                typename buffer_t::iterator elem_iter(result);
+                elem_iter.get_extra_info() = false; // mark as busy.
                 new_obj_ready = false;
                 return result;
             }
             if (buffer.size() < max_size) {
-                buffer.push_back(obj_t(), true);
+                buffer.push_back(obj_t()/*TODO: FIXME: require default-constructable*/, true);
                 free_list.push_back(&*--buffer.end());
                 goto borrow_again;
             }
