@@ -17,6 +17,8 @@ class test_obj_cls {
 public:
     test_obj_cls() : i(cter), j(cter * cter) { ++cter; }
 
+    test_obj_cls(int i, int j) : i(i), j(j) {}
+
     void show() {
         rlog.info("i={} j={}"_format(i, j));
     }
@@ -28,7 +30,7 @@ private:
 };
 
 int main() {
-    rlib::fixed_object_pool<test_obj_cls> pool(4);
+    rlib::fixed_object_pool<test_obj_cls, 4, int, int> pool(333, 666);
     auto obj1 = pool.borrow_one();
     auto obj2 = pool.borrow_one();
     auto obj3 = pool.borrow_one();

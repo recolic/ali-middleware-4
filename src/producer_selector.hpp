@@ -6,6 +6,8 @@
 #define ALI_MIDDLEWARE_AGENT_PRODUCER_SELECTOR_HPP
 
 #include <boost_asio_quick_connect.hpp>
+#include <etcd_service.hpp>
+#include <conn_pool.hpp>
 #include <string>
 #include <list>
 
@@ -17,7 +19,6 @@
 #include <boost/beast/core.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
-#include "etcd_service.hpp"
 
 #ifdef ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP_
 #error consumer_agent.hpp must not be included before producer_selector.hpp.
@@ -33,26 +34,20 @@ namespace consumer {
 
         // Connect to producer_agent and preserve connection.
         producer_info(boost::asio::io_context &ioContext, const std::string &addr, uint16_t port)
-                : io_context(ioContext), conn(boost::asio::quick_connect(ioContext, addr, port)),
-                  hostname(addr)
+                : io_context(ioContext), hostname(addr), pconns(new conn_pool(ioContext, addr, (uint16_t) port))
         {}
 
         // Auto-generated move constructor is ambiguous.
         producer_info(producer_info &&another)
-                : io_context(another.io_context), conn(std::move(another.conn)),
-                  hostname(std::move(another.hostname))
+                : io_context(another.io_context), hostname(std::move(another.hostname)),
+                  pconns(std::move(another.pconns))
         {}
-
-        ~producer_info() {
-            boost::system::error_code ec;
-            conn.shutdown(boost::asio::ip::tcp::socket::shutdown_both, ec);
-        }
 
         inline boost::beast::http::response<string_body>
         async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &yield) {
             boost::system::error_code ec;
             boost::beast::http::response<string_body> res;
-            rlog.debug("Requesting...");
+            boost::asio::ip::tcp::socket &conn = pconns->borrow_one()->get();
             boost::beast::http::async_write(conn, req, yield[ec]);
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
@@ -61,7 +56,6 @@ namespace consumer {
             boost::beast::flat_buffer buffer;
             boost::beast::http::async_read(conn, buffer, res, yield[ec]);
             if (ec) RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
-            rlog.debug("Success.");
             return std::move(res);
         }
 
@@ -71,7 +65,7 @@ namespace consumer {
 
     private:
         boost::asio::io_context &io_context;
-        boost::asio::ip::tcp::socket conn;
+        std::unique_ptr<conn_pool> pconns;
         std::string hostname;
 
         // Other data structure for burden level measurement.
@@ -86,7 +80,7 @@ namespace consumer {
                 : io_context(io_context) {
             rlog.info("(fake_connect) connecting to etcd server {}."_format(etcd_addr_and_port));
             rlog.info("(fake_connect) initializing server list as {}:{}."_format(RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT));
-            producers.push_back(producer_info(io_context, RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT));
+            producers.emplace_back(io_context, RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT);
         }
 
         producer_info &query_once() {

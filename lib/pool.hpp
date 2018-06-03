@@ -5,6 +5,7 @@
 #include <thread>
 #include <mutex>
 #include <utility>
+#include <tuple>
 #include <functional>
 #include <list>
 #include <algorithm>
@@ -31,7 +32,6 @@ namespace rlib {
                 friend class traceable_list;
             public:
                 explicit iterator(node *ptr) : ptr(ptr) {}
-
                 explicit iterator(T *data_pointer) : ptr(reinterpret_cast<node *>(data_pointer)) {}
                 T &operator*() {
                     // If this is an iterator to empty_list.begin(), then nullptr->data throws.
@@ -50,7 +50,6 @@ namespace rlib {
                     // If this is an iterator to empty_list.begin(), then nullptr->data throws.
                     return ptr->data;
                 }
-
                 const T *operator->() const {
                     // If this is an iterator to empty_list.begin(), then nullptr->data throws.
                     return &ptr->data;
@@ -94,9 +93,7 @@ namespace rlib {
                 }
             private:
                 node *ptr;
-
                 iterator(node *ptr, node *tail) : ptr(ptr), _impl_tail(tail) {}
-
                 node *_impl_tail = nullptr; // If this iter is created by begin() or end(), it must set this ptr to support end().operator--(), to indicate that this iterator is not invalid.
             };
 
@@ -207,14 +204,18 @@ namespace rlib {
         };
     }
 
-    template <typename obj_t>
+    template<typename obj_t, size_t max_size, typename... _bound_construct_args_t>
     class fixed_object_pool : rlib::noncopyable {
         using buffer_t = impl::traceable_list<obj_t, bool>;
+        using this_type = fixed_object_pool<obj_t, max_size, _bound_construct_args_t ...>;
     public:
-        fixed_object_pool() = delete;
-
-        fixed_object_pool(size_t max_size)
-            : max_size(max_size) {}
+        explicit fixed_object_pool(_bound_construct_args_t &&... _args)
+                : _bound_args(std::forward<_bound_construct_args_t>(_args) ...) {}
+//        fixed_object_pool(this_type &&another)
+//                : _bound_args(std::forward<_bound_construct_args_t>(another._bound_args) ...),
+//                  buffer(std::move(another.buffer)), free_list(std::move(another.free_list)),
+//                  buffer_mutex(std::move(another.buffer_mutex))
+//        {}
 
         // `new` an object. Return nullptr if pool is full.
         obj_t *try_borrow_one() {
@@ -246,7 +247,7 @@ namespace rlib {
         }
 
     private:
-        size_t max_size = 0;
+        std::tuple<_bound_construct_args_t ...> _bound_args;
 
         buffer_t buffer; // list<obj_t obj, bool is_free>
         std::list<obj_t *> free_list;
@@ -269,11 +270,21 @@ namespace rlib {
                 return result;
             }
             if (buffer.size() < max_size) {
-                buffer.push_back(obj_t()/*TODO: FIXME: require default-constructable*/, true);
+                new_obj_to_buffer();
                 free_list.push_back(&*--buffer.end());
                 goto borrow_again;
             }
             return nullptr;
+        }
+
+        // fake emplace_back
+        template<size_t ... index_seq>
+        inline void new_obj_to_buffer_impl(std::index_sequence<index_seq ...>) {
+            buffer.push_back(std::move(obj_t(std::get<index_seq>(_bound_args) ...)), true);
+        }
+
+        inline void new_obj_to_buffer() {
+            new_obj_to_buffer_impl(std::make_index_sequence<sizeof...(_bound_construct_args_t)>());
         }
     };
 }
