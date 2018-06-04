@@ -122,7 +122,9 @@ namespace rlib {
                 return result;
             // Not available. Wait for release_one.
             boost::system::error_code ec;
+            rlog.debug("Warning: blocking...");
             borrow_avail_event.async_wait(yield[ec]); // Warning: you must not hold any lock on yield!
+            rlog.debug("Block passed. continue...");
             result = try_borrow_one();
             if (!result)
                 throw std::logic_error("unknown par error. maybe fake asio::event awake?");

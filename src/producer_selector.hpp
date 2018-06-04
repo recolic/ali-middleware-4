@@ -19,6 +19,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/asio.hpp>
 #include <boost/asio/spawn.hpp>
+#include <rlib/scope_guard.hpp>
 
 #ifdef ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP_
 #error consumer_agent.hpp must not be included before producer_selector.hpp.
@@ -48,13 +49,17 @@ namespace consumer {
         async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &yield) {
             boost::system::error_code ec;
             boost::beast::http::response<string_body> res;
-            boost::asio::ip::tcp::socket &conn = pconns->borrow_one(yield)->get();
+            boost::beast::flat_buffer buffer;
+
+            auto borrowed_conn = pconns->borrow_one(yield);
+            rlib_defer([&] { pconns->release_one(borrowed_conn); });
+            boost::asio::ip::tcp::socket &conn = borrowed_conn->get();
+
             boost::beast::http::async_write(conn, req, yield[ec]);
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
                 return std::move(res);
             }
-            boost::beast::flat_buffer buffer;
             boost::beast::http::async_read(conn, buffer, res, yield[ec]);
             if (ec) RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
             return std::move(res);
