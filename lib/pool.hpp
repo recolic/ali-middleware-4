@@ -13,6 +13,7 @@
 
 #include <boost/asio/spawn.hpp>
 #include <boost_asio_event.hpp>
+#include <logger.hpp>
 
 namespace rlib {
     /*
@@ -122,12 +123,16 @@ namespace rlib {
                 return result;
             // Not available. Wait for release_one.
             boost::system::error_code ec;
-            rlog.debug("Warning: blocking...");
+            gt_borrow_one_wait_again:
             borrow_avail_event.async_wait(yield[ec]); // Warning: you must not hold any lock on yield!
-            rlog.debug("Block passed. continue...");
             result = try_borrow_one();
-            if (!result)
-                throw std::logic_error("unknown par error. maybe fake asio::event awake?");
+            if (!result) {
+                // TODO: I'm not sure why this error will occur. This is just a work around.
+                // throw std::logic_error("unknown par error. maybe fake asio::event awake?");
+                rlog.error("Fake asio::event awake detected!");
+                goto gt_borrow_one_wait_again;
+
+            }
             return result;
         }
 
@@ -152,7 +157,7 @@ namespace rlib {
         // try_borrow_one without lock.
         obj_t *do_try_borrow_one() {
             // Optimize here if is performance bottleneck (lockless list... etc...)
-            borrow_again:
+            gt_borrow_again:
             if (free_list.size() > 0) {
                 // Some object is free. Just return one.
                 obj_t *result = *free_list.begin();
@@ -165,7 +170,7 @@ namespace rlib {
             if (buffer.size() < max_size) {
                 new_obj_to_buffer();
                 free_list.push_back(&*--buffer.end());
-                goto borrow_again;
+                goto gt_borrow_again;
             }
             return nullptr;
         }
