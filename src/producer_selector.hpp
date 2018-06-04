@@ -34,7 +34,8 @@ namespace consumer {
 
         // Connect to producer_agent and preserve connection.
         producer_info(boost::asio::io_context &ioContext, std::string addr, uint16_t port)
-                : io_context(ioContext), hostname(addr), pconns(new conn_pool(ioContext, addr, (uint16_t) port))
+                : io_context(ioContext), hostname(addr),
+                  pconns(new conn_pool_coro(ioContext, ioContext, addr, (uint16_t) port))
         {}
 
         // Auto-generated move constructor is ambiguous.
@@ -47,7 +48,7 @@ namespace consumer {
         async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &yield) {
             boost::system::error_code ec;
             boost::beast::http::response<string_body> res;
-            boost::asio::ip::tcp::socket &conn = pconns->borrow_one()->get();
+            boost::asio::ip::tcp::socket &conn = pconns->borrow_one(yield)->get();
             boost::beast::http::async_write(conn, req, yield[ec]);
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
@@ -65,7 +66,7 @@ namespace consumer {
 
     private:
         boost::asio::io_context &io_context;
-        std::unique_ptr<conn_pool> pconns;
+        std::unique_ptr<conn_pool_coro> pconns;
         std::string hostname;
 
         // Other data structure for burden level measurement.

@@ -107,10 +107,8 @@ namespace rlib {
         using buffer_t = impl::traceable_list<obj_t, bool>;
         using this_type = fixed_object_pool_coro<obj_t, max_size, _bound_construct_args_t ...>;
     public:
-        explicit fixed_object_pool_coro(boost::asio::io_context &ioc, boost::asio::yield_context &&yield,
-                                        _bound_construct_args_t ... _args)
-                : borrow_avail_event(ioc), yield(yield),
-                  _bound_args(std::forward<_bound_construct_args_t>(_args) ...) {}
+        explicit fixed_object_pool_coro(boost::asio::io_context &ioc, _bound_construct_args_t ... _args)
+                : borrow_avail_event(ioc), _bound_args(std::forward<_bound_construct_args_t>(_args) ...) {}
 
         // `new` an object. Return nullptr if pool is full.
         obj_t *try_borrow_one() {
@@ -118,7 +116,7 @@ namespace rlib {
             return do_try_borrow_one();
         }
 
-        obj_t *borrow_one() {
+        obj_t *borrow_one(boost::asio::yield_context &yield) {
             auto result = try_borrow_one();
             if (result)
                 return result;
@@ -148,7 +146,6 @@ namespace rlib {
         std::list<obj_t *> free_list;
         std::mutex buffer_mutex;
         boost::asio::event borrow_avail_event;
-        boost::asio::yield_context yield;
 
         // try_borrow_one without lock.
         obj_t *do_try_borrow_one() {
