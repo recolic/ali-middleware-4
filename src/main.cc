@@ -32,13 +32,13 @@ Args:
 [Required] --listen-port  -p  Port where consumer-agent listens.
 [Required] --etcd             Address of etcd service.
 [Required] --etcd-port        Address of etcd port.
+           --log              (info/debug/fatal) set log level, default=info.
 
 ->>> producer
 )RALI"_format(RLIB_MACRO_TO_CSTR(AGENT_VERSION), argv[0]));
         exit(1);
     };
 
-    rlog.set_log_level(rlib::log_level_t::DEBUG);
     if(argc == 1)
         help_and_exit();
 
@@ -47,10 +47,13 @@ Args:
         help_and_exit();
 
     auto whoami = opt.getCommand();
+    auto log_level = opt.getValueArg("--log", false);
+    if(log_level == "fatal") rlog.set_log_level(rlib::log_level_t::FATAL);
+    else if(log_level == "info") rlog.set_log_level(rlib::log_level_t::INFO);
+    else if(log_level == "debug") rlog.set_log_level(rlib::log_level_t::DEBUG);
 
     if (whoami.substr(0, 8) == "producer") {
         // TODO: parse and call
-
     }
     else if(whoami == "consumer") {
         auto listen_addr = opt.getValueArg("--listen", "-l");
