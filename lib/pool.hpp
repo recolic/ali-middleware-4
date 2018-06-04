@@ -127,7 +127,7 @@ namespace rlib {
             borrow_avail_event.async_wait(yield[ec]); // Warning: you must not hold any lock on yield!
             result = try_borrow_one();
             if (!result) {
-                // TODO: I'm not sure why this error will occur. This is just a work around.
+                // I'm not sure why this error will occur. This is just a work around.
                 // throw std::logic_error("unknown par error. maybe fake asio::event awake?");
                 rlog.error("Fake asio::event awake detected!");
                 goto gt_borrow_one_wait_again;

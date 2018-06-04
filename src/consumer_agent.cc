@@ -24,8 +24,6 @@ using namespace rlib::literals;
 namespace consumer {
 
     [[noreturn]] void agent::listen(const std::string &listen_addr, uint16_t listen_port) {
-        // TODO: Launch http server and forward requests.
-        // TODO: you have to reuse connection to every server.
         tcp::endpoint endpoint(ip::make_address(listen_addr), listen_port);
 
         static_assert(std::is_same<decltype(std::bind(&agent::do_listen, this, endpoint, std::placeholders::_1)(
