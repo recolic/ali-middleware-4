@@ -19,6 +19,7 @@
 
 extern rlib::logger rlog; // definition in src/main.cc
 
+
 namespace producer {
 
     class agent : rlib::noncopyable {
@@ -28,28 +29,24 @@ namespace producer {
         // Connect to etcd and register myself.
         agent(const std::string &etcd_addr_and_port);
         // Launch http server and listen for consumer_agent. Be caution that you should reuse connections.
-        [[noreturn]] void listen(const std::string &listen_addr, uint16_t listen_port);
+        [[noreturn]] void listen(const std::string &listen_addr, uint16_t listen_port,
+                                 const std::string &proucer_addr, uint16_t producer_port);
 
     private:
-        boost::asio::io_context io_context;
+      int threads;
+      const std::string producer_addr;
+      uint16_t producer_port;
+      boost::asio::io_context io_context;
 
-        // TODO:
-        // Four steps:
-        // 1.Consumer Agent => Producer Agent: Receive HTTP (FORM)
-        void listen_consumer();
+      // Listen consumer request(thread or coroutine). If get request, then call session_consumer().
+      void listen_consumer(tcp::endpoint ep, asio::yield_context yield)
 
-        // 2.Producer Agent => Producer: Use DUBBO (JSON)
-        void sendto_producer();
+      // Do session with consumer, get HTTP request and handle it.
+      void agint::session_consumer(tcp::socket &&conn, asio::yield_context yield)
 
-        // 3.Producer => Producer Agent: JSON
-        void listen_producer();
-
-        // 4.Producer Agent => Consumer Agent: Send HTTP (TEXT)
-        void sendto_consumer();
-
-        // Not sure if etcd do need heartbeat.
-        [[noreturn]] void etcd_register_and_heartbeat(const std::string &etcd_addr_and_port);
-        std::thread etcd_heartbeat_thread;
+      // Not sure if etcd do need heartbeat.
+      [[noreturn]] void etcd_register_and_heartbeat(const std::string &etcd_addr_and_port);
+      std::thread etcd_heartbeat_thread;
     };
 }
 

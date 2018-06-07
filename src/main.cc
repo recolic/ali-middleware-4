@@ -30,10 +30,12 @@ Args:
 ->>> consumer
 
 ->>> producer
-[Required] --listen       -l  Address where producer-agent listens.
-[Required] --listen-port  -p  Port where producer-agent listens.
-[Required] --etcd             Address of etcd service.
-[Required] --etcd-port        Address of etcd port.
+[Required] --consumer      -c  The consumer-agent address.
+[Required] --consumer-port -cp The port of consumer-agent.
+[Required] --listen        -l  Address where producer-agent listens.
+[Required] --listen-port   -lp  Port where producer-agent listens.
+[Required] --etcd              Address of etcd service.
+[Required] --etcd-port         Address of etcd port.
 )RALI"_format(RLIB_MACRO_TO_CSTR(AGENT_VERSION), argv[0]));
         exit(1);
     };
@@ -49,6 +51,9 @@ Args:
     auto whoami = opt.getCommand();
 
     if (whoami.substr(0, 8) == "producer") {
+        auto consumer_addr = opt.getValueArg("--consumer", "-c");
+        auto consumer_port = opt.getValueArg("--consumer-port", "-cp").as<uint16_t>();
+
         auto listen_addr = opt.getValueArg("--listen", "-l");
         auto listen_port = opt.getValueArg("--listen-port", "-p").as<uint16_t>();
 
@@ -57,7 +62,7 @@ Args:
 
         producer::agent agent("{}:{}"_format(etcd_addr, etcd_port));
         rlog.debug("Agent initialize done.");
-        agent.listen(listen_addr, listen_port);
+        agent.listen(consumer_addr, consumer_port, listen_addr, listen_port);
     }
     else if(whoami == "consumer") {
 
