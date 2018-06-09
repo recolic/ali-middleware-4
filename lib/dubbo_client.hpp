@@ -31,10 +31,10 @@ public:
         kv_serializer::kv_list_t payload;
     };
 
-    request_result_t request(const kv_serializer::kv_list_t &parameter) const {
+    request_result_t request(const kv_serializer::kv_list_t &parameter) {
         return std::move(request(json_serializer().serialize(parameter)));
     }
-    request_result_t request(const std::string &payload) const {
+    request_result_t request(const std::string &payload) {
         dubbo_header header;
         header.is_request = 1;
         header.need_return = 1;
@@ -48,14 +48,14 @@ public:
         auto sockServer = boost::asio::quick_connect(io_context, server_addr, server_port);
 
         boost::asio::write(sockServer, boost::asio::buffer(&header, sizeof(header)));
-        boost::asio::write(sockServer, payload);
+        boost::asio::write(sockServer, boost::asio::buffer(payload));
 
         boost::asio::read(sockServer, boost::asio::buffer(&header, sizeof(header)));
         if(header.data_length > 1024 * 1024 * 1024)
             throw std::runtime_error("Dubbo server says the payload length is >1GiB. It's dangerous so I rejected.");
         std::string payload_buffer;
         payload_buffer.reserve(header.data_length);
-        boost::asio::read(sockServer, payload_buffer);
+        boost::asio::read(sockServer, boost::asio::buffer(payload_buffer));
 
         request_result_t result;
         result.status = (status_t)header.status;

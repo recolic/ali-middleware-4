@@ -27,26 +27,29 @@ namespace producer {
         agent() = delete;
 
         // Connect to etcd and register myself.
-        agent(const std::string &etcd_addr_and_port);
+        agent(const std::string &etcd_addr_and_port, std::string &producer_addr, uint16_t producer_port);
         // Launch http server and listen for consumer_agent. Be caution that you should reuse connections.
-        [[noreturn]] void listen(const std::string &listen_addr, uint16_t listen_port,
-                                 const std::string &proucer_addr, uint16_t producer_port);
+        [[noreturn]] void listen(const std::string &listen_addr, uint16_t listen_port);
 
-    private:
-      int threads;
-      const std::string producer_addr;
-      uint16_t producer_port;
-      boost::asio::io_context io_context;
+      private:
+        int threads;
+        std::string producer_addr;
+        uint16_t producer_port;
+        boost::asio::io_context io_context;
 
-      // Listen consumer request(thread or coroutine). If get request, then call session_consumer().
-      void listen_consumer(tcp::endpoint ep, asio::yield_context yield)
+        // Listen consumer request(thread or coroutine). If get request, then call session_consumer().
+        void listen_consumer(boost::asio::ip::tcp::endpoint endpoint, boost::asio::yield_context yield);
 
-      // Do session with consumer, get HTTP request and handle it.
-      void agint::session_consumer(tcp::socket &&conn, asio::yield_context yield)
+        // Do session with consumer, get HTTP request.
+        void session_consumer(boost::asio::ip::tcp::socket &&conn, boost::asio::yield_context yield);
 
-      // Not sure if etcd do need heartbeat.
-      [[noreturn]] void etcd_register_and_heartbeat(const std::string &etcd_addr_and_port);
-      std::thread etcd_heartbeat_thread;
+        // Handle HTTP request and do session with producer using dubbo
+        boost::beast::http::response<boost::beast::http::string_body>
+        handle_request(boost::beast::http::request<boost::beast::http::string_body> &&req,
+                       boost::asio::yield_context &yield);
+        // Not sure if etcd do need heartbeat.
+        [[noreturn]] void etcd_register_and_heartbeat(const std::string &etcd_addr_and_port);
+        std::thread etcd_heartbeat_thread;
     };
 }
 

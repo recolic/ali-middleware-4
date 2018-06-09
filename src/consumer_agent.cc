@@ -61,7 +61,7 @@ namespace consumer {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
             else
                 // TODO: (Compilation error) What's the matter???????????????????????
-                asio::spawn(io_context, std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1));
+                asio::spawn(io_context, std::bind(&agent::do_session, this, std::bind(static_cast<tcp::socket&&(&)(tcp::socket&)>(std::move<tcp::socket&>), std::move(conn)), std::placeholders::_1));
         }
     }
 

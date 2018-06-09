@@ -60,9 +60,9 @@ Args:
         auto etcd_addr = opt.getValueArg("--etcd");
         auto etcd_port = opt.getValueArg("--etcd-port").as<uint16_t>();
 
-        producer::agent agent("{}:{}"_format(etcd_addr, etcd_port));
+        producer::agent agent("{}:{}"_format(etcd_addr, etcd_port), consumer_addr, consumer_port);
         rlog.debug("Agent initialize done.");
-        agent.listen(consumer_addr, consumer_port, listen_addr, listen_port);
+        agent.listen(listen_addr, listen_port);
     }
     else if(whoami == "consumer") {
 
@@ -71,4 +71,4 @@ Args:
         help_and_exit();
     }
 
-
+}
