@@ -4,11 +4,13 @@
 
 #include <consumer_agent.hpp>
 
+#include <boost/beast/http/error.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/asio/spawn.hpp>
 
 #include <functional>
+#include <logger.hpp>
 
 using string_view = boost::beast::string_view;
 namespace http = boost::beast::http;
@@ -20,11 +22,6 @@ using tcp = ip::tcp;
 using namespace rlib::literals;
 
 namespace consumer {
-#define ON_BOOST_FATAL(ec) do { RBOOST_LOG_EC(ec, rlib::log_level_t::FATAL); \
-        throw std::runtime_error(ec.message()); } while(false)
-#define ON_BOOST_ERROR(ec) do { RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR); \
-        return; } while(false)
-#define RBOOST_LOG_EC(ec, level) rlog.log("boost error at {}:{}, {}"_format(__FILE__, __LINE__, ec.message()), level)
 
     [[noreturn]] void agent::listen(const std::string &listen_addr, uint16_t listen_port) {
         // TODO: Launch http server and forward requests.
@@ -36,6 +33,12 @@ namespace consumer {
                 void>::value, "Error on deducting type for asio::spawn arg2.");
         rlog.info("Launching http server (consumer_agent) at {}:{}"_format(listen_addr, listen_port));
         asio::spawn(io_context, std::bind(&agent::do_listen, this, std::move(endpoint), std::placeholders::_1));
+
+        std::vector<std::thread> v;
+        v.reserve((size_t) threads - 1);
+        for (auto i = threads - 1; i > 0; --i)
+            v.emplace_back([this] { this->io_context.run(); });
+        io_context.run();
     }
 
     void agent::do_listen(tcp::endpoint endpoint, asio::yield_context yield) {
@@ -45,7 +48,7 @@ namespace consumer {
         acceptor.open(endpoint.protocol(), ec);
         if (ec) ON_BOOST_FATAL(ec);
 
-        acceptor.set_option(boost::asio::socket_base::reuse_address(true));
+        acceptor.set_option(asio::socket_base::reuse_address(true));
         if (ec) ON_BOOST_FATAL(ec);
 
         acceptor.bind(endpoint, ec);
@@ -59,15 +62,27 @@ namespace consumer {
             acceptor.async_accept(conn, yield[ec]);
             if (ec)
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
-            else
-                // TODO: (Compilation error) What's the matter???????????????????????
+            else {
+                /*
+                 * std::bind doesn't allow rvalue (ref) so this version doesn't work.
+                 * auto _fdebug = std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1);
+                 * typeof(_fdebug) is std::_Bind<void (consumer::agent::*(consumer::agent *, socket, std::_Placeholder<1>))(socket&&, yield_context)>
+                 *
+                 * But solution below works, and why? (https://stackoverflow.com/questions/4871273/passing-rvalues-through-stdbind)
+                 * auto _fdebug = std::bind(&agent::do_session, this, std::bind(static_cast<tcp::socket&&(&)(tcp::socket&)>(std::move<tcp::socket&>), std::move(conn)), std::placeholders::_1);
+                 * _fdebug(yield);
+                 *
+                 * asio::spawn(io_context, std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1));
+                 */
                 asio::spawn(io_context, std::bind(&agent::do_session, this, std::bind(static_cast<tcp::socket&&(&)(tcp::socket&)>(std::move<tcp::socket&>), std::move(conn)), std::placeholders::_1));
+            }
         }
     }
 
-    void agent::do_session(tcp::socket conn, asio::yield_context yield) {
+    void agent::do_session(tcp::socket &&conn, asio::yield_context yield) {
         boost::system::error_code ec;
         boost::beast::flat_buffer buffer;
+        rlog.debug("session launched.");
 
         while (true) {
             http::request<http::string_body> req;
@@ -76,10 +91,11 @@ namespace consumer {
                 break;
             if (ec) ON_BOOST_ERROR(ec);
 
-            bool must_close_conn = false;
-            on_request_arrive(std::move(req), yield, &must_close_conn);
+            auto response = handle_request(std::move(req), yield);
 
-            if (must_close_conn)
+            http::async_write(conn, response, yield[ec]);
+
+            if (!response.keep_alive())
                 break;
         }
 
@@ -87,12 +103,29 @@ namespace consumer {
         if (ec) ON_BOOST_ERROR(ec);
     }
 
-    void agent::on_request_arrive(http::request<http::string_body> &&req, asio::yield_context &yield,
-                                  bool *must_close_conn) {
+    http::response<http::string_body> agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
+        rlog.debug("handle_request");
 
+        // Only serve GET request. Return 400 if not GET.
+        if (req.method() != http::verb::get) {
+            http::response<http::string_body> res{http::status::bad_request, req.version()};
+            res.set(http::field::server, "rHttp");
+            res.set(http::field::content_type, "text/plain");
+            res.keep_alive(req.keep_alive());
+            res.body() = "bad request";
+            res.prepare_payload();
+            return std::move(res);
+        }
+
+        producer_info &producer = selector.query_once();
+        req.set(http::field::user_agent, "rHttp");
+        req.set(http::field::host, producer.get_host());
+        auto res = producer.async_request(req, yield);
+
+        res.set(http::field::server, "rHttp");
+        res.keep_alive(req.keep_alive());
+        rlog.debug("handle_request done.");
+        return std::move(res);
     }
 
-#undef ON_BOOST_FATAL
-#undef ON_BOOST_ERROR
-#undef RBOOST_LOG_EC
 }

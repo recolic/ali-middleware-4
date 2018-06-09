@@ -9,11 +9,12 @@
 #include <list>
 #include <rlib/sys/os.hpp>
 #include <rlib/sys/sio.hpp>
-#include <rlib/scope_guard.hpp>
 
 #include <json_serializer.hpp>
 #include <boost/asio.hpp>
 #include <boost_asio_quick_connect.hpp>
+
+#include <rlib/scope_guard.hpp>
 
 class dubbo_client
 {
