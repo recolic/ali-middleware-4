@@ -29,7 +29,10 @@ Usage: {} <consumer/producer-*> [Args ...]
 
 Args:
 ->>> consumer
-<<<<<<< HEAD
+[Required] --listen       -l  Address where consumer-agent listens.
+[Required] --listen-port  -p  Port where consumer-agent listens.
+[Required] --etcd             Address of etcd service.
+[Required] --etcd-port        Address of etcd port.
 
 ->>> producer
 [Required] --consumer      -c  The consumer-agent address.
@@ -38,14 +41,6 @@ Args:
 [Required] --listen-port   -lp  Port where producer-agent listens.
 [Required] --etcd              Address of etcd service.
 [Required] --etcd-port         Address of etcd port.
-=======
-[Required] --listen       -l  Address where consumer-agent listens.
-[Required] --listen-port  -p  Port where consumer-agent listens.
-[Required] --etcd             Address of etcd service.
-[Required] --etcd-port        Address of etcd port.
-
-->>> producer
->>>>>>> master
 )RALI"_format(RLIB_MACRO_TO_CSTR(AGENT_VERSION), argv[0]));
         exit(1);
     };
