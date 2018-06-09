@@ -34,3 +34,7 @@ build/**
 cmake-build-debug
 .idea
 .vscode
+
+### others
+tmp/**
+*.gi

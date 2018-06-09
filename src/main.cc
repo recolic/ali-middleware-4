@@ -7,6 +7,7 @@
 #include <rlib/log.hpp>
 #include <rlib/macro.hpp>
 
+#include <producer_agent.hpp>
 #include <consumer_agent.hpp>
 
 rlib::logger rlog(std::cout);
@@ -35,6 +36,12 @@ Args:
            --log              (info/debug/fatal) set log level, default=info.
 
 ->>> producer
+[Required] --consumer      -c  The consumer-agent address.
+[Required] --consumer-port -cp The port of consumer-agent.
+[Required] --listen        -l  Address where producer-agent listens.
+[Required] --listen-port   -lp  Port where producer-agent listens.
+[Required] --etcd              Address of etcd service.
+[Required] --etcd-port         Address of etcd port.
 )RALI"_format(RLIB_MACRO_TO_CSTR(AGENT_VERSION), argv[0]));
         exit(1);
     };
@@ -53,7 +60,18 @@ Args:
     else if(log_level == "debug") rlog.set_log_level(rlib::log_level_t::DEBUG);
 
     if (whoami.substr(0, 8) == "producer") {
-        // TODO: parse and call
+        auto consumer_addr = opt.getValueArg("--consumer", "-c");
+        auto consumer_port = opt.getValueArg("--consumer-port", "-cp").as<uint16_t>();
+
+        auto listen_addr = opt.getValueArg("--listen", "-l");
+        auto listen_port = opt.getValueArg("--listen-port", "-p").as<uint16_t>();
+
+        auto etcd_addr = opt.getValueArg("--etcd");
+        auto etcd_port = opt.getValueArg("--etcd-port").as<uint16_t>();
+
+        producer::agent agent("{}:{}"_format(etcd_addr, etcd_port), consumer_addr, consumer_port);
+        rlog.debug("Agent initialize done.");
+        agent.listen(listen_addr, listen_port);
     }
     else if(whoami == "consumer") {
         auto listen_addr = opt.getValueArg("--listen", "-l");
@@ -73,6 +91,5 @@ Args:
         rlog.fatal("Role must be consumer or producer-*, rather than `{}`."_format(whoami));
         help_and_exit();
     }
-
 
 }
