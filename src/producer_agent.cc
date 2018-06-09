@@ -12,6 +12,8 @@
 #include <boost/beast/core.hpp>
 #include <boost/asio/spawn.hpp>
 
+#include <iostream>
+
 namespace asio = boost::asio;
 namespace ip = asio::ip;
 using tcp = ip::tcp;
@@ -75,25 +77,11 @@ namespace producer {
                 break;
             if (ec) ON_BOOST_ERROR(ec);
 
-            // Return 400 if not GET
-            if (req.method() != http::verb::get) {
-                http::response<http::string_body> res{http::status::bad_request, req.version()};
-                res.set(http::field::server, "rHttp");
-                res.set(http::field::content_type, "text/plain");
-                res.keep_alive(req.keep_alive());
-                res.body() = "bad request";
-                res.prepare_payload();
-            }
-            // 
-            else {
-                //TODO: Dubbo client
-                dubbo_client dubbo_client(agent.producer_addr, agent.producer_port);
-                dubbo_client.request()
-            }
+            auto response = handle_request(std::move(req), yield)
 
             http::async_write(conn, res, yield[ec]);
 
-            if (!res.keep_alive())
+            if (!response.keep_alive())
                 break;
         }
 
@@ -101,7 +89,53 @@ namespace producer {
         if (ec) ON_BOOST_ERROR(ec);
     }
 
+    http::response<http::string_body> agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
+        rlog.debug("handle_request");
+
+        // Return 400 if not GET
+        if (req.method() != http::verb::get) {
+            http::response<http::string_body> res{http::status::bad_request, req.version()};
+            res.set(http::field::server, "rHttp");
+            res.set(http::field::content_type, "text/plain");
+            res.keep_alive(req.keep_alive());
+            res.body() = "bad request";
+            res.prepare_payload();
+            return std::move(res);
+        }
+
+        //TODO: Dubbo client
+        std::string[] kv_str = req.body().split("&");
+        std::list<std::pair<key_t, value_t>> kv_list;
+        for (int i = 0; i < (sizeof(kv_str) / sizeof(kv_str[0])); i++) {
+            std::string[] kv_pair = kv_str[i].split("=");
+            kv_list.push_back(std::make_pair(kv_pair[0], kv_pair[1]))
+        }
+        dubbo_client dubbo_client(agent.producer_addr, agent.producer_port);
+        request_result_t result = dubbo_client.request(kv_list);
+        rlog.debug("get_request");
+        if (result.status == OK) {
+            std::cout << result << std::endl;
+            http::response<string_body> res{http::status::ok, req.version()};
+            res.set(http::field::server, "rHttp");
+            res.set(http::field::content_type, "text/plain");
+            res.keep_alive(req.keep_alive());
+            res.body() = "Hello world!";
+            res.prepare_payload();
+            return std::move(res);
+        }
+        else {
+            http::response<string_body> res{http::status::bad_request, req.version()};
+            res.set(http::field::server, "rHttp");
+            res.set(http::field::content_type, "text/plain");
+            res.keep_alive(req.keep_alive());
+            res.body() = "Dubbo client error!";
+            res.prepare_payload();
+            return std::move(res);
+        }
+    }
+
     [[noreturn]] void agent::etcd_register_and_heartbeat(const std::string &etcd_addr_and_port) {
         // TODO: Send heartbeat packet to etcd.
     }
 }
+
