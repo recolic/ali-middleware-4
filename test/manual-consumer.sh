@@ -1,7 +1,7 @@
 #!/bin/bash
 
 function test_once () {
-    curl 'http://127.0.0.1:25553/?test=shit' 2>/dev/null | grep "<!DOCTYPE html>" || failed_msg 'EEEEEEEEEEEEEEER'
+    curl 'http://127.0.0.1:25555/?test=shit' 2>/dev/null | grep "<!DOCTYPE html>" || failed_msg 'EEEEEEEEEEEEEEER'
 }
 
 # Do 2 sync test before 1k async test...

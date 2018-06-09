@@ -1,5 +1,8 @@
 language: cpp
-script: mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make
+script:
+    - mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make && cd ..
+    - test/consumer.sh build
+    - build/test-asio-event && build/test-pool && build/test-serialize && build/test-threaded-conn-pool && build/test-traceable-list
 
 matrix:
   include:
