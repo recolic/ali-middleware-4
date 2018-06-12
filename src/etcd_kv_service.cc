@@ -15,6 +15,7 @@ void etcd_kv_service<is_producer>::connect(const std::string &etcd_addr_and_port
      *    Confirm if REST api port is allowed by Aliyun Contest document!!! It doesn't seem to be so!
      * // You can do connect synchronously, without performance worry.
      */
+    etcd::Client etcd(etcd_addr_and_port);
 }
 
 template<bool is_producer>
@@ -22,6 +23,7 @@ const value_type &etcd_kv_service<is_producer>::get(const key_type &key) {
     if (is_producer)
         throw std::invalid_argument("You must not call etcd_kv_service::get in producer.");
     return cache[key];
+
 }
 
 template<bool is_producer>
