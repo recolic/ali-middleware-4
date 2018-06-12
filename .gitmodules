@@ -1,6 +1,3 @@
-[submodule "lib/grpc"]
-	path = lib/grpc
-	url = https://github.com/recolic/grpc.git
 [submodule "lib/rlib"]
 	path = lib/rlib
 	url = https://github.com/recolic/rlib.git
