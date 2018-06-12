@@ -27,8 +27,8 @@ public:
 
     void connect(const std::string &etcd_addr_and_port);
 
-    void append(const key_type &key, const value_type &value);
-    const container_type &get_list(const key_type &key);
+    void append(const std:: string &etcd_addr_and_port,const key_type &key, const value_type &value);
+    const container_type &get_list(const std::string &etcd_addr_and_port,const key_type &key);
 
 private:
     boost::asio::io_context io_context;
