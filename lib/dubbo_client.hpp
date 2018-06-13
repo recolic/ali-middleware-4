@@ -32,17 +32,17 @@ public:
         kv_serializer::kv_list_t payload;
     };
 
-    request_result_t request(const kv_serializer::kv_list_t &parameter) {
-        return std::move(request(json_serializer().serialize(parameter)));
+    request_result_t request(const kv_serializer::kv_list_t &parameter, uint64_t request_id) {
+        return std::move(request(json_serializer().serialize(parameter), request_id));
     }
-    request_result_t request(const std::string &payload) {
+    request_result_t request(const std::string &payload, uint64_t request_id) {
         dubbo_header header;
         header.is_request = 1;
         header.need_return = 1;
         header.is_event = 0;
         header.serialization_id = 6;
         header.status = 0;
-        header.request_id = 0x19990713;
+        header.request_id = request_id;
         header.data_length = (uint32_t)payload.size();
 
         // TODO: reuse connection.

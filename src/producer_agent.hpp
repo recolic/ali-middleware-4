@@ -11,6 +11,7 @@
 #include <rlib/log.hpp>
 
 #include <string>
+#include <atomic>
 #include <boost/asio.hpp>
 #include <boost/coroutine2/coroutine.hpp>
 
@@ -27,7 +28,8 @@ namespace producer {
         agent() = delete;
 
         // Connect to etcd and register myself.
-        agent(const std::string &etcd_addr_and_port, std::string &producer_addr, uint16_t producer_port);
+        agent(const std::string &etcd_addr_and_port,
+         std::string &producer_addr, uint16_t producer_port, uint64_t request_id = 0x1);
         // Launch http server and listen for consumer_agent. Be caution that you should reuse connections.
         [[noreturn]] void listen(const std::string &listen_addr, uint16_t listen_port);
 
@@ -35,6 +37,7 @@ namespace producer {
         int threads;
         std::string producer_addr;
         uint16_t producer_port;
+        std::atomic_uint64_t request_id;
         boost::asio::io_context io_context;
 
         // Listen consumer request(thread or coroutine). If get request, then call session_consumer().

@@ -25,8 +25,9 @@ using namespace rlib::literals;
 
 namespace producer {
 
-    agent::agent(const std::string &etcd_addr_and_port, std::string &producer_addr, uint16_t producer_port)
-     : producer_addr(producer_addr), producer_port(producer_port) {
+    agent::agent(const std::string &etcd_addr_and_port,
+     std::string &producer_addr, uint16_t producer_port, uint64_t request_id)
+     : producer_addr(producer_addr), producer_port(producer_port), request_id(request_id) {
         // TODO: Connect to etcd, register myself. Launch heartbeat thread.
         
     }
@@ -113,9 +114,13 @@ namespace producer {
             kv_list.push_back(std::make_pair(kv_pair[0], kv_pair[1]));
         }
         dubbo_client dubbo(producer_addr, producer_port);
-        auto result = dubbo.request(kv_list);
+        auto result = dubbo.request(kv_list, request_id);
+        request_id += 1;
         rlog.debug("get_request");
         if (result.status == dubbo_client::status_t::OK) {
+            for (auto &ele : result.payload) {
+                rlog.debug("{{}, {}}"_format(ele.first, ele.second));
+            }
             http::response<http::string_body> res{http::status::ok, req.version()};
             res.set(http::field::server, "rHttp");
             res.set(http::field::content_type, "text/plain");
