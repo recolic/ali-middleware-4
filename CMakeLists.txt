@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.2)
 project(ali-middleware-agent)
 
+include_directories(./lib/etcd-cpp-apiv3/include)
 add_subdirectory(./lib/etcd-cpp-apiv3)
 
 set(CMAKE_CXX_STANDARD 14)
