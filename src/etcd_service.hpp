@@ -5,6 +5,9 @@
 #ifndef ALI_MIDDLEWARE_AGENT_ETCD_SERVICE_HPP
 #define ALI_MIDDLEWARE_AGENT_ETCD_SERVICE_HPP
 
+#include <etcd/Client.hpp>
+#include "logger.hpp"
+
 #include <rlib/class_decorator.hpp>
 #include <string>
 #include <boost/asio.hpp>
@@ -21,20 +24,29 @@ public:
 
     etcd_service() = delete;
 
-    etcd_service(const std::string &etcd_addr_and_port) : conn(io_context) {
-        connect(etcd_addr_and_port);
+    etcd_service(const std::string &etcd_addr_and_port) : cli(etcd_addr_and_port) {
+        rlog.info("Connected to {}."_format(etcd_addr_and_port));
     }
 
-    void connect(const std::string &etcd_addr_and_port);
-
     void append(const key_type &key, const value_type &value);
-    const container_type &get_list(const key_type &key);
+    std::vector<rlib::string> get_list(const key_type &key);
 
 private:
-    boost::asio::io_context io_context;
-    boost::asio::ip::tcp::socket conn;
+    value_type sync_get(const key_type &key) {
+        auto resp = cli.get(key).get();
+        if(!resp.is_ok())
+            throw std::runtime_error("etcd_cli sync_get failed. {}"_format(resp.error_message()));
+        return resp.value().as_string();
+    }
+    [[maybe_unused]] value_type sync_set(const key_type &key, const value_type &val) {
+        auto resp = cli.set(key, val).get();
+        if(!resp.is_ok())
+            throw std::runtime_error("etcd_cli sync_set failed. {}"_format(resp.error_message()));
+        return resp.prev_value().as_string();
+    }
 
-    std::vector<std::pair<key_type, value_type>> cache;
+    [[gnu::unused]] std::vector<std::pair<key_type, value_type>> cache;
+    etcd::Client cli;
 };
 
 #endif //ALI_MIDDLEWARE_AGENT_ETCD_SERVICE_HPP

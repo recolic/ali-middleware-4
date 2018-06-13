@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.2)
 project(ali-middleware-agent)
 
+include_directories(./lib/etcd-cpp-apiv3/include)
+add_subdirectory(./lib/etcd-cpp-apiv3)
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_VERBOSE_MAKEFILE ON)
@@ -50,6 +53,8 @@ add_executable(test-asio-event test/boost_asio_event.cc lib/boost_asio_event.hpp
 target_link_libraries(agent Threads::Threads)
 target_link_libraries(agent Boost::system)
 target_link_libraries(agent Boost::coroutine)
+
+target_link_libraries(agent etcd-cpp-api)
 
 target_link_libraries(test-pool Threads::Threads)
 target_link_libraries(test-pool Boost::system)

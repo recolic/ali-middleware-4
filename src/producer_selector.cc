@@ -7,3 +7,9 @@
 namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
 
+consumer::producer_info &consumer::producer_selector::query_once() {
+    static size_t curr = 0;
+    if(curr == producers.size())
+        curr = 0;
+    return producers[curr++];
+}
