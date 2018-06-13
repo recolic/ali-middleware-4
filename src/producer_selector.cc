@@ -6,6 +6,7 @@
 
 namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
+<<<<<<< HEAD
 
 consumer::producer_info &consumer::producer_selector::query_once() {
     static size_t curr = 0;
@@ -14,3 +15,5 @@ consumer::producer_info &consumer::producer_selector::query_once() {
     return producers[curr++];
 }
 
+=======
+>>>>>>> adapting-etcd-cpp-api

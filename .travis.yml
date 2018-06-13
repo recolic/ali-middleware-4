@@ -31,10 +31,10 @@ before_install:
     - git clone https://github.com/recolic/grpc.git --recursive && cd grpc && make -j2 && sudo make install && cd ..
       # websockpp
     - git clone https://github.com/recolic/websocketpp.git && sudo cp -r websocketpp/websocketpp /usr/include/
-    # cpprest
+      # cpprest
     - git clone https://github.com/recolic/cpprestsdk.git && cd cpprestsdk/Release && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=false -DBUILD_SAMPLES=false . && make -j2 && sudo make install && cd ../..
-
-
+      # Preparing protobuf...
+    - wget https://github.com/google/protobuf/releases/download/v3.5.1/protobuf-cpp-3.5.1.tar.gz && tar -xzf protobuf-cpp-3.5.1.tar.gz && cd protobuf-3.5.1 && ./configure && make -j2 && sudo make install && cd ..
 
 addons:
   apt:
