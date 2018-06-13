@@ -32,7 +32,7 @@ before_install:
       # websockpp
     - git clone https://github.com/recolic/websocketpp.git && sudo cp -r websocketpp/websocketpp /usr/include/
     # cpprest
-    - git clone https://github.com/recolic/cpprestsdk.git && cd cpprestsdk/Release && cmake -DCMAKE_BUILD_TYPE=Release . && make -j2 && sudo make install && cd ..
+    - git clone https://github.com/recolic/cpprestsdk.git && cd cpprestsdk/Release && cmake -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=false -DBUILD_SAMPLES=false . && make -j2 && sudo make install && cd ../..
 
 
 
