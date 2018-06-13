@@ -6,6 +6,7 @@
 
 #include <producer_agent.hpp>
 
+#include <etcd_service.hpp>
 #include <../lib/dubbo_client.hpp>
 #include <boost/beast/http/error.hpp>
 #include <boost/beast/http.hpp>
@@ -28,8 +29,9 @@ namespace producer {
     agent::agent(const std::string &etcd_addr_and_port,
      std::string &producer_addr, uint16_t producer_port, uint64_t request_id)
      : producer_addr(producer_addr), producer_port(producer_port), request_id(request_id) {
-        // TODO: Connect to etcd, register myself. Launch heartbeat thread.
-        
+        // TO/DO: Connect to etcd, register myself. Launch heartbeat thread.
+        etcd_service etcd_service(etcd_addr_and_port);
+        etcd_service.append(producer_addr, std::to_string(producer_port));
     }
 
     [[noreturn]] void agent::listen(const std::string &listen_addr, uint16_t listen_port) {
@@ -106,7 +108,7 @@ namespace producer {
             return std::move(res);
         }
 
-        //TODO: Dubbo client
+        //TO/DO: Dubbo client
         auto kv_str = rlib::string(req.body()).split("&");
         kv_serializer::kv_list_t kv_list;
         for (int i = 0; i < kv_str.size(); i++) {
