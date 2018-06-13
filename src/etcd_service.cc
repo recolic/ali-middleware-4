@@ -3,6 +3,7 @@
 //
 
 #include "etcd_service.hpp"
+#include "producer_selector.hpp"
 
 void etcd_service::append(const etcd_service::key_type &key, const etcd_service::value_type &value) {
     /*
@@ -25,6 +26,5 @@ std::vector<rlib::string> etcd_service::get_list(const etcd_service::key_type &k
      * boost::asio::read(conn, this->cache);
      * return std::cref(this->cache);
      */
-    auto ar = rlib::string(sync_get(key)).split('|');
-    return std::move(ar);
+    return rlib::string(sync_get(key)).split('|');
 }

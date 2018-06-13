@@ -81,6 +81,7 @@ namespace consumer {
     public:
         producer_selector() = delete;
 
+#undef PRODUCER_SELECTOR_UNFINISHED
 #ifdef PRODUCER_SELECTOR_UNFINISHED
         producer_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
                 : io_context(io_context) {
@@ -95,9 +96,14 @@ namespace consumer {
 #else
         // Connect to etcd and fetch server list. You must use gRPC or REST API.
         producer_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
-            : etcd(etcd_addr_and_port) {
-            auto producer_list = etcd.get_list();
-            // Construct this->producers from information in producer_list. Burden auto-balance data structure must also be added to producer_info.
+            : io_context(io_context), etcd(etcd_addr_and_port) {
+            auto addr_list = etcd.get_list("server");
+            for(const auto &_addr : addr_list) {
+                auto addr_and_port = _addr.split(':');
+                if(addr_and_port.size() != 2)
+                    throw std::runtime_error("Bad server_addr from etcd: `{}`."_format(_addr));
+                producers.emplace_back(io_context, addr_and_port[0], addr_and_port[1].as<uint16_t>());
+            }
         }
 
         // Select one producer to query, do auto-balance here.
@@ -110,7 +116,7 @@ namespace consumer {
 
 
     private:
-        std::list<producer_info> producers;
+        std::vector<producer_info> producers;
         boost::asio::io_context &io_context;
 
     };
