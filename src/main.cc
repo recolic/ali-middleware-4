@@ -28,15 +28,17 @@ Usage: {} <consumer/producer-*> [Args ...]
 
 Args:
 ->>> consumer
-[Required] --listen       -l  Address where consumer-agent listens.
-[Required] --listen-port  -p  Port where consumer-agent listens.
+[Required] --listen       -l  Address where the agent listens.
+[Required] --listen-port  -p  Port where the agent listens.
 [Required] --etcd             Address of etcd service.
 [Required] --etcd-port        Address of etcd port.
            --log              (info/debug/fatal) set log level, default=info.
 
 ->>> producer
-[Required] --listen        -l  Address where producer-agent listens.
-[Required] --listen-port   -p  Port where producer-agent listens.
+[Required] --listen        -l  Address where the agent listens.
+[Required] --listen-port   -p  Port where the agent listens.
+[Required] --producer          Address of producer (dubbo server).
+[Required] --producer-port     Port of producer.
 [Required] --etcd              Address of etcd service.
 [Required] --etcd-port         Address of etcd port.
 )RALI"_format(RLIB_MACRO_TO_CSTR(AGENT_VERSION), argv[0]));
@@ -61,11 +63,14 @@ Args:
         auto listen_addr = opt.getValueArg("--listen", "-l");
         auto listen_port = opt.getValueArg("--listen-port", "-p").as<uint16_t>();
 
+        auto producer_addr = opt.getValueArg("--producer");
+        auto producer_port = opt.getValueArg("--producer-port").as<uint16_t>();
+
         auto etcd_addr = opt.getValueArg("--etcd");
         auto etcd_port = opt.getValueArg("--etcd-port").as<uint16_t>();
 
-        producer::agent agent("{}:{}"_format(etcd_addr, etcd_port), listen_addr, listen_port);
-        rlog.info("'{}' is listening {}:{}, with etcd server set to {}:{}."_format(whoami, listen_addr, listen_port, etcd_addr, etcd_port));
+        producer::agent agent("{}:{}"_format(etcd_addr, etcd_port), producer_addr, producer_port);
+        rlog.info("'{}' is listening {}:{} as producer, with etcd server set to {}:{}, producer set to {}:{}."_format(whoami, listen_addr, listen_port, etcd_addr, etcd_port, producer_addr, producer_port));
         agent.listen(listen_addr, listen_port);
     }
     else if(whoami == "consumer") {
@@ -76,7 +81,7 @@ Args:
         auto etcd_port = opt.getValueArg("--etcd-port").as<uint16_t>();
 
         consumer::agent agent("{}:{}"_format(etcd_addr, etcd_port));
-        rlog.info("'{}' is listening {}:{}, with etcd server set to {}:{}."_format(whoami, listen_addr, listen_port, etcd_addr, etcd_port));
+        rlog.info("'{}' is listening {}:{} as consumer, with etcd server set to {}:{}."_format(whoami, listen_addr, listen_port, etcd_addr, etcd_port));
         agent.listen(listen_addr, listen_port);
     }
     else {
