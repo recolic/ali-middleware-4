@@ -31,7 +31,7 @@ namespace producer {
      : producer_addr(producer_addr), producer_port(producer_port), request_id(request_id) {
         // TO/DO: Connect to etcd, register myself. Launch heartbeat thread.
         etcd_service etcd_service(etcd_addr_and_port);
-        etcd_service.append(producer_addr, std::to_string(producer_port));
+        etcd_service.append("server", "{}:{}"_format(producer_addr, std::to_string(producer_port)));
     }
 
     [[noreturn]] void agent::listen(const std::string &listen_addr, uint16_t listen_port) {

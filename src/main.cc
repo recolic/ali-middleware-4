@@ -23,7 +23,6 @@ Ali-middleware challenge 2018 {}
 CopyRight (C) 2018 - 2018
     Recolic Keghart <root@recolic.net>
     Yue Pan <zxc479773533@gmail.com>
-    Alisa Wu <wuminyan0607@gmail.com>
 
 Usage: {} <consumer/producer-*> [Args ...]
 
@@ -37,7 +36,7 @@ Args:
 
 ->>> producer
 [Required] --listen        -l  Address where producer-agent listens.
-[Required] --listen-port   -lp  Port where producer-agent listens.
+[Required] --listen-port   -p  Port where producer-agent listens.
 [Required] --etcd              Address of etcd service.
 [Required] --etcd-port         Address of etcd port.
 )RALI"_format(RLIB_MACRO_TO_CSTR(AGENT_VERSION), argv[0]));
@@ -66,8 +65,8 @@ Args:
         auto etcd_port = opt.getValueArg("--etcd-port").as<uint16_t>();
 
         producer::agent agent("{}:{}"_format(etcd_addr, etcd_port), listen_addr, listen_port);
-        rlog.debug("Agent initialize done.");
-        agent.listen("0.0.0.0", 80);
+        rlog.info("'{}' is listening {}:{}, with etcd server set to {}:{}."_format(whoami, listen_addr, listen_port, etcd_addr, etcd_port));
+        agent.listen(listen_addr, listen_port);
     }
     else if(whoami == "consumer") {
         auto listen_addr = opt.getValueArg("--listen", "-l");
@@ -76,11 +75,8 @@ Args:
         auto etcd_addr = opt.getValueArg("--etcd");
         auto etcd_port = opt.getValueArg("--etcd-port").as<uint16_t>();
 
-        //auto debug_server_addr = opt.getValueArg("--debug-server-addr", false);
-        //auto debug_server_port = opt.getValueArg("--debug-server-port", false, "0").as<uint16_t>();
-
         consumer::agent agent("{}:{}"_format(etcd_addr, etcd_port));
-        rlog.debug("Agent initialize done.");
+        rlog.info("'{}' is listening {}:{}, with etcd server set to {}:{}."_format(whoami, listen_addr, listen_port, etcd_addr, etcd_port));
         agent.listen(listen_addr, listen_port);
     }
     else {
