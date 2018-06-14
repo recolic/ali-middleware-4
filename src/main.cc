@@ -67,7 +67,7 @@ Args:
 
         producer::agent agent("{}:{}"_format(etcd_addr, etcd_port), listen_addr, listen_port);
         rlog.debug("Agent initialize done.");
-        agent.listen(INADDR_ANY, 80);
+        agent.listen("0.0.0.0", 80);
     }
     else if(whoami == "consumer") {
         auto listen_addr = opt.getValueArg("--listen", "-l");
