@@ -80,7 +80,6 @@ namespace consumer {
     void agent::do_session(tcp::socket &&conn, asio::yield_context yield) {
         boost::system::error_code ec;
         boost::beast::flat_buffer buffer;
-        rlog.debug("session launched.");
 
         while (true) {
             http::request<http::string_body> req;
@@ -121,9 +120,13 @@ namespace consumer {
         auto res = provider.async_request(req, yield);
 
         res.set(http::field::server, "rHttp");
-        res.keep_alive(req.keep_alive());
+        if (res.result() == http::status::internal_server_error) {
+            res.keep_alive(false);
+            rlog.error("Warning: interal server error detected. refuse to keep_alive.");
+        } else {
+            res.keep_alive(req.keep_alive());
+        }
         rlog.debug("handle_request done.");
         return std::move(res);
     }
-
 }

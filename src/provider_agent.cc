@@ -7,7 +7,7 @@
 #include <provider_agent.hpp>
 
 #include <etcd_service.hpp>
-#include <../lib/dubbo_client.hpp>
+#include <dubbo_client.hpp>
 #include <boost/beast/http/error.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/core.hpp>

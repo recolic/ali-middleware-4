@@ -26,6 +26,7 @@
 #endif
 
 namespace consumer {
+    namespace http = boost::beast::http;
 
     // Manage connection to provider_agent servers. You must reuse these connections.
     class provider_info : rlib::noncopyable {
@@ -48,20 +49,32 @@ namespace consumer {
         inline boost::beast::http::response<string_body>
         async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &yield) {
             boost::system::error_code ec;
-            boost::beast::http::response<string_body> res;
+            http::response<string_body> res;
             boost::beast::flat_buffer buffer;
+
+            auto gen_500 = [&req] {
+                http::response<http::string_body> res{http::status::internal_server_error, req.version()};
+                res.set(http::field::server, "rHttp");
+                res.set(http::field::content_type, "text/plain");
+                res.body() = "server error";
+                res.prepare_payload();
+                return std::move(res);
+            };
 
             auto borrowed_conn = pconns->borrow_one(yield);
             rlib_defer([&] { pconns->release_one(borrowed_conn); });
             boost::asio::ip::tcp::socket &conn = borrowed_conn->get();
 
-            boost::beast::http::async_write(conn, req, yield[ec]);
+            http::async_write(conn, req, yield[ec]);
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
-                return std::move(res);
+                return gen_500();
             }
-            boost::beast::http::async_read(conn, buffer, res, yield[ec]);
-            if (ec) RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
+            http::async_read(conn, buffer, res, yield[ec]);
+            if (ec) {
+                RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
+                return gen_500();
+            }
             return std::move(res);
         }
 
