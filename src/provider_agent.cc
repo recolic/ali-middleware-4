@@ -26,12 +26,12 @@ using namespace rlib::literals;
 
 namespace provider {
 
-    agent::agent(const std::string &etcd_addr_and_port, const std::string &my_addr,
-     const std::string &provider_addr, uint16_t provider_port, uint64_t request_id)
-     : provider_addr(provider_addr), provider_port(provider_port), request_id(request_id) {
+    agent::agent(const std::string &etcd_addr_and_port, const std::string &my_addr, uint16_t listen_port,
+     const std::string &provider_addr, uint16_t provider_port)
+     : provider_addr(provider_addr), provider_port(provider_port), request_id(427) {
         // TO/DO: Connect to etcd, register myself. Launch heartbeat thread.
         etcd_service etcd_service(etcd_addr_and_port);
-        etcd_service.append("server", "{}:{}"_format(my_addr, provider_port));
+        etcd_service.append("server", "{}:{}"_format(my_addr, listen_port));
     }
 
     [[noreturn]] void agent::listen(const std::string &listen_addr, uint16_t listen_port) {

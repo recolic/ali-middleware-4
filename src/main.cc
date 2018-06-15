@@ -69,7 +69,7 @@ Args:
         auto etcd_addr = opt.getValueArg("--etcd");
         auto etcd_port = opt.getValueArg("--etcd-port").as<uint16_t>();
 
-        provider::agent agent("{}:{}"_format(etcd_addr, etcd_port), whoami, provider_addr, provider_port);
+        provider::agent agent("{}:{}"_format(etcd_addr, etcd_port), whoami, listen_port, provider_addr, provider_port);
         rlog.info("'{}' is listening {}:{} as provider, with etcd server set to {}:{}, provider set to {}:{}."_format(whoami, listen_addr, listen_port, etcd_addr, etcd_port, provider_addr, provider_port));
         agent.listen(listen_addr, listen_port);
     }

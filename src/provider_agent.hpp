@@ -28,8 +28,8 @@ namespace provider {
         agent() = delete;
 
         // Connect to etcd and register myself.
-        agent(const std::string &etcd_addr_and_port, const std::string &my_addr,
-         const std::string &provider_addr, uint16_t provider_port, uint64_t request_id = 0x1);
+        agent(const std::string &etcd_addr_and_port, const std::string &my_addr, uint16_t listen_port,
+         const std::string &provider_addr, uint16_t provider_port);
         // Launch http server and listen for consumer_agent. Be caution that you should reuse connections.
         [[noreturn]] void listen(const std::string &listen_addr, uint16_t listen_port);
 

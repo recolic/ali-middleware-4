@@ -81,8 +81,7 @@ namespace consumer {
     public:
         provider_selector() = delete;
 
-#undef PRODUCER_SELECTOR_UNFINISHED
-#ifdef PRODUCER_SELECTOR_UNFINISHED
+#ifdef PROVIDER_SELECTOR_NO_USE_ETCD
         provider_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
                 : io_context(io_context) {
             rlog.info("(fake_connect) connecting to etcd server {}."_format(etcd_addr_and_port));

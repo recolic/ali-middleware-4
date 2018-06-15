@@ -22,11 +22,9 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
 endif()
 
 execute_process(COMMAND bash -c "git log | head -n 1 | cut -d ' ' -f 2" OUTPUT_VARIABLE GIT_COMMIT_N)
+add_definitions(-DGIT_COMMIT_NUM=${GIT_COMMIT_N})
 
 add_definitions(-DBOOST_COROUTINES_NO_DEPRECATION_WARNING)
-#add_definitions(-DPRODUCER_SELECTOR_UNFINISHED)
-
-add_definitions(-DGIT_COMMIT_NUM=${GIT_COMMIT_N})
 
 add_definitions(-DAGENT_VERSION=1.0.1)
 add_definitions(-DDEBUG_SERVER_ADDR=www.aliyun.com)
