@@ -9,7 +9,7 @@
 #include <boost/beast/http.hpp>
 #include <boost/asio.hpp>
 
-#include <producer_selector.hpp>
+#include <provider_selector.hpp>
 
 namespace consumer {
 
@@ -18,7 +18,7 @@ namespace consumer {
     public:
         http_forwarder() = delete;
 
-        http_forwarder(producer_selector &selector) : selector(selector) {}
+        http_forwarder(provider_selector &selector) : selector(selector) {}
 
         [[noreturn]] void serve(const std::string &listen_addr, uint16_t listen_port/*etcd arg?*/) {
 
@@ -26,7 +26,7 @@ namespace consumer {
 
     private:
         boost::asio::io_context io_context;
-        producer_selector selector;
+        provider_selector selector;
     };
 
 }

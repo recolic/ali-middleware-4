@@ -5,7 +5,7 @@
 #ifndef ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP
 #define ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP
 
-#include <producer_selector.hpp>
+#include <provider_selector.hpp>
 #define ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP_
 
 #include <rlib/class_decorator.hpp>
@@ -26,7 +26,7 @@ namespace consumer {
     public:
         agent() = delete;
 
-        // Initialize producer_selector and it will connect to etcd now.
+        // Initialize provider_selector and it will connect to etcd now.
         agent(const std::string &etcd_addr_and_port, int threads = 1)
                 : io_context(threads), selector(io_context, etcd_addr_and_port), threads(threads) {}
 
@@ -35,7 +35,7 @@ namespace consumer {
 
     private:
         boost::asio::io_context io_context;
-        producer_selector selector;
+        provider_selector selector;
         int threads;
 
         void do_listen(boost::asio::ip::tcp::endpoint endpoint, boost::asio::yield_context yield);

@@ -115,10 +115,10 @@ namespace consumer {
             return std::move(res);
         }
 
-        producer_info &producer = selector.query_once();
+        provider_info &provider = selector.query_once();
         req.set(http::field::user_agent, "rHttp");
-        req.set(http::field::host, producer.get_host());
-        auto res = producer.async_request(req, yield);
+        req.set(http::field::host, provider.get_host());
+        auto res = provider.async_request(req, yield);
 
         res.set(http::field::server, "rHttp");
         res.keep_alive(req.keep_alive());

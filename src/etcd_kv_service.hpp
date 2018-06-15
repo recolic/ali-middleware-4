@@ -15,10 +15,10 @@
  * This service can be run in seperate thread, so async IO is not required, as that's not a performance issue(even in the future).
  * However, get and set must be carefully optimized.
  *
- * Note that, currently producers is not really `dynamically` registered and discovered.
- * So producers just call set one by one, and consumer call get and decode server list.
+ * Note that, currently providers is not really `dynamically` registered and discovered.
+ * So providers just call set one by one, and consumer call get and decode server list.
  */
-template<bool is_producer>
+template<bool is_provider>
 class [[deprecated]] etcd_kv_service : rlib::noncopyable {
 public:
     using key_type = std::string;
@@ -28,8 +28,8 @@ public:
 
     etcd_kv_service(const std::string &etcd_addr_and_port) : conn(io_context) {
         connect(etcd_addr_and_port);
-        if (is_producer)
-            set("producers", "my_addr:my_port");
+        if (is_provider)
+            set("providers", "my_addr:my_port");
         else
             pull_cache();
     }

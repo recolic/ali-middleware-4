@@ -13,6 +13,8 @@
 #include <boost/asio.hpp>
 #include <unordered_map>
 
+using namespace std::literals;
+
 /*
  * This class is for current usage. It implements limited functions, to support current naive agent.
  */
@@ -24,7 +26,7 @@ public:
 
     etcd_service() = delete;
 
-    etcd_service(const std::string &etcd_addr_and_port) : cli(etcd_addr_and_port) {
+    etcd_service(const std::string &etcd_addr_and_port) : cli("http://"s + etcd_addr_and_port) {
         rlog.info("Connected to {}."_format(etcd_addr_and_port));
     }
 
@@ -34,8 +36,11 @@ public:
 private:
     value_type sync_get(const key_type &key) {
         auto resp = cli.get(key).get();
-        if(!resp.is_ok())
+        if(!resp.is_ok()) {
+            if(resp.error_message() == "Key not found")
+                return std::string();
             throw std::runtime_error("etcd_cli sync_get failed. {}"_format(resp.error_message()));
+        }
         return resp.value().as_string();
     }
     [[maybe_unused]] value_type sync_set(const key_type &key, const value_type &val) {

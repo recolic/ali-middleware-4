@@ -22,25 +22,25 @@
 #include <rlib/scope_guard.hpp>
 
 #ifdef ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP_
-#error consumer_agent.hpp must not be included before producer_selector.hpp.
+#error consumer_agent.hpp must not be included before provider_selector.hpp.
 #endif
 
 namespace consumer {
 
-    // Manage connection to producer_agent servers. You must reuse these connections.
-    class producer_info : rlib::noncopyable {
+    // Manage connection to provider_agent servers. You must reuse these connections.
+    class provider_info : rlib::noncopyable {
         using string_body = boost::beast::http::string_body;
     public:
-        producer_info() = delete;
+        provider_info() = delete;
 
-        // Connect to producer_agent and preserve connection.
-        producer_info(boost::asio::io_context &ioContext, std::string addr, uint16_t port)
+        // Connect to provider_agent and preserve connection.
+        provider_info(boost::asio::io_context &ioContext, std::string addr, uint16_t port)
                 : io_context(ioContext), hostname(addr),
                   pconns(new conn_pool_coro(ioContext, ioContext, addr, (uint16_t) port))
         {}
 
         // Auto-generated move constructor is ambiguous.
-        producer_info(producer_info &&another)
+        provider_info(provider_info &&another)
                 : io_context(another.io_context), hostname(std::move(another.hostname)),
                   pconns(std::move(another.pconns))
         {}
@@ -77,38 +77,42 @@ namespace consumer {
         // Other data structure for burden level measurement.
     };
 
-    class producer_selector : rlib::noncopyable {
+    class provider_selector : rlib::noncopyable {
     public:
-        producer_selector() = delete;
+        provider_selector() = delete;
 
 #undef PRODUCER_SELECTOR_UNFINISHED
 #ifdef PRODUCER_SELECTOR_UNFINISHED
-        producer_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
+        provider_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
                 : io_context(io_context) {
             rlog.info("(fake_connect) connecting to etcd server {}."_format(etcd_addr_and_port));
             rlog.info("(fake_connect) initializing server list as {}:{}."_format(RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT));
-            producers.emplace_back(io_context, RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT);
+            providers.emplace_back(io_context, RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT);
         }
 
-        producer_info &query_once() {
-            return *producers.begin();
+        provider_info &query_once() {
+            return *providers.begin();
         }
 #else
         // Connect to etcd and fetch server list. You must use gRPC or REST API.
-        producer_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
+        provider_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
             : io_context(io_context), etcd(etcd_addr_and_port) {
             auto addr_list = etcd.get_list("server");
             for(const auto &_addr : addr_list) {
+                if(_addr.empty())
+                    continue;
                 auto addr_and_port = _addr.split(':');
                 if(addr_and_port.size() != 2)
                     throw std::runtime_error("Bad server_addr from etcd: `{}`."_format(_addr));
-                producers.emplace_back(io_context, addr_and_port[0], addr_and_port[1].as<uint16_t>());
+                providers.emplace_back(io_context, addr_and_port[0], addr_and_port[1].as<uint16_t>());
             }
+            if(providers.empty())
+                throw std::runtime_error("No provider available. Unable to provide service...");
         }
 
-        // Select one producer to query, do auto-balance here.
-        // Determine which producer to query. Potential performance bottleneck here, MUST BE QUICK!
-        producer_info &query_once();
+        // Select one provider to query, do auto-balance here.
+        // Determine which provider to query. Potential performance bottleneck here, MUST BE QUICK!
+        provider_info &query_once();
 
     private:
         etcd_service etcd;
@@ -116,7 +120,7 @@ namespace consumer {
 
 
     private:
-        std::vector<producer_info> producers;
+        std::vector<provider_info> providers;
         boost::asio::io_context &io_context;
 
     };

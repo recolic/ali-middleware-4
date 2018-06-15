@@ -21,8 +21,12 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     # using Visual Studio C++
 endif()
 
+execute_process(COMMAND bash -c "git log | head -n 1 | cut -d ' ' -f 2" OUTPUT_VARIABLE GIT_COMMIT_N)
+
 add_definitions(-DBOOST_COROUTINES_NO_DEPRECATION_WARNING)
 #add_definitions(-DPRODUCER_SELECTOR_UNFINISHED)
+
+add_definitions(-DGIT_COMMIT_NUM=${GIT_COMMIT_N})
 
 add_definitions(-DAGENT_VERSION=1.0.1)
 add_definitions(-DDEBUG_SERVER_ADDR=www.aliyun.com)
@@ -40,7 +44,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 
 set(RLIB_SRC lib/rlib/libr.cc)
 set(LIB_SRC lib/dubbo_client.hpp lib/kv_serializer.hpp lib/json_serializer.hpp ${RLIB_SRC} lib/boost_asio_quick_connect.hpp lib/pool.hpp lib/conn_pool.hpp lib/boost_asio_event.hpp lib/traceable_list.hpp)
-set(AGENT_SRC src/main.cc src/producer_agent.cc src/producer_agent.hpp src/consumer_agent.cc src/consumer_agent.hpp src/producer_selector.cc src/producer_selector.hpp src/logger.hpp src/etcd_service.cc src/etcd_service.hpp)
+set(AGENT_SRC src/main.cc src/provider_agent.cc src/provider_agent.hpp src/consumer_agent.cc src/consumer_agent.hpp src/provider_selector.cc src/provider_selector.hpp src/logger.hpp src/etcd_service.cc src/etcd_service.hpp)
 
 add_executable(agent ${AGENT_SRC} ${LIB_SRC})
 

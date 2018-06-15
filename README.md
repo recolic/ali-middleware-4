@@ -8,7 +8,7 @@
 ```bash
 # Clone tip:
 git clone --recursive https://github.com/recolic/ali-middleware.git
-# consumer-agent build(producer-agent and selector unfinished):
+# consumer-agent build(provider-agent and selector unfinished):
 cd build && cmake -DCMAKE_BUILD_TYPE=Release .. && make -j4
 # consumer-agent parallel testing
 test/consumer.sh ./build

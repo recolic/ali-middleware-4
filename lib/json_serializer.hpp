@@ -23,10 +23,11 @@ public:
     virtual std::string serialize(const kv_list_t &kv_list) const {
         if(kv_list.empty())
             return std::string("{}");
-        std::string result = "{";
+        std::string result = "{\n";
         for(const auto &kv : kv_list) {
-            result += "\"{}\":\"{}\","_format(kv.first, kv.second);
+            result += "\"{}\":\"{}\",\n"_format(kv.first, kv.second);
         }
+        result[result.size() - 2] = '\n';
         result[result.size() - 1] = '}';
         return std::move(result);
     }

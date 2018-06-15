@@ -3,7 +3,7 @@
 //
 
 #include "etcd_service.hpp"
-#include "producer_selector.hpp"
+#include "provider_selector.hpp"
 
 void etcd_service::append(const etcd_service::key_type &key, const etcd_service::value_type &value) {
     /*

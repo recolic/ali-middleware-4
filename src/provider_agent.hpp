@@ -21,7 +21,7 @@
 extern rlib::logger rlog; // definition in src/main.cc
 
 
-namespace producer {
+namespace provider {
 
     class agent : rlib::noncopyable {
     public:
@@ -29,14 +29,14 @@ namespace producer {
 
         // Connect to etcd and register myself.
         agent(const std::string &etcd_addr_and_port,
-         std::string &producer_addr, uint16_t producer_port, uint64_t request_id = 0x1);
+         std::string &provider_addr, uint16_t provider_port, uint64_t request_id = 0x1);
         // Launch http server and listen for consumer_agent. Be caution that you should reuse connections.
         [[noreturn]] void listen(const std::string &listen_addr, uint16_t listen_port);
 
       private:
         int threads;
-        std::string producer_addr;
-        uint16_t producer_port;
+        std::string provider_addr;
+        uint16_t provider_port;
         std::atomic_uint64_t request_id;
         boost::asio::io_context io_context;
 
@@ -46,7 +46,7 @@ namespace producer {
         // Do session with consumer, get HTTP request.
         void session_consumer(boost::asio::ip::tcp::socket &&conn, boost::asio::yield_context yield);
 
-        // Handle HTTP request and do session with producer using dubbo
+        // Handle HTTP request and do session with provider using dubbo
         boost::beast::http::response<boost::beast::http::string_body>
         handle_request(boost::beast::http::request<boost::beast::http::string_body> &&req,
                        boost::asio::yield_context &yield);

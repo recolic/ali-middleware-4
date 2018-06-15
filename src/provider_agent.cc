@@ -4,7 +4,7 @@
 // zxcpyp started working on 18-5-23.
 //
 
-#include <producer_agent.hpp>
+#include <provider_agent.hpp>
 
 #include <etcd_service.hpp>
 #include <../lib/dubbo_client.hpp>
@@ -24,20 +24,20 @@ using tcp = ip::tcp;
 using namespace rlib::literals;
 
 
-namespace producer {
+namespace provider {
 
     agent::agent(const std::string &etcd_addr_and_port,
-     std::string &producer_addr, uint16_t producer_port, uint64_t request_id)
-     : producer_addr(producer_addr), producer_port(producer_port), request_id(request_id) {
+     std::string &provider_addr, uint16_t provider_port, uint64_t request_id)
+     : provider_addr(provider_addr), provider_port(provider_port), request_id(request_id) {
         // TO/DO: Connect to etcd, register myself. Launch heartbeat thread.
         etcd_service etcd_service(etcd_addr_and_port);
-        etcd_service.append("server", "{}:{}"_format(producer_addr, std::to_string(producer_port)));
+        etcd_service.append("server", "{}:{}"_format(provider_addr, std::to_string(provider_port)));
     }
 
     [[noreturn]] void agent::listen(const std::string &listen_addr, uint16_t listen_port) {
-        // TO/DO: Launch http server, listen consumer request. If get request, then call sendto_producer().
+        // TO/DO: Launch http server, listen consumer request. If get request, then call sendto_provider().
         tcp::endpoint ep(ip::make_address(listen_addr), listen_port);
-        rlog.info("Launching http server (producer_agent) at {}:{}"_format(listen_addr, listen_port));
+        rlog.info("Launching http server (provider_agent) at {}:{}"_format(listen_addr, listen_port));
         asio::spawn(io_context, std::bind(&agent::listen_consumer, this, ep, std::placeholders::_1));
         io_context.run();
     }
@@ -115,7 +115,7 @@ namespace producer {
             auto kv_pair = rlib::string(kv_str[i]).split("=");
             kv_list.push_back(std::make_pair(kv_pair[0], kv_pair[1]));
         }
-        dubbo_client dubbo(producer_addr, producer_port);
+        dubbo_client dubbo(provider_addr, provider_port);
         auto result = dubbo.request(kv_list, request_id);
         request_id += 1;
         rlog.debug("get_request");
