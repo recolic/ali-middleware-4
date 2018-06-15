@@ -28,20 +28,19 @@ CopyRight (C) 2018 - 2018
 Usage: {} <consumer/provider-*> [Args ...]
 
 Args:
-->>> consumer
+->>> common
 [Required] --listen       -l  Address where the agent listens.
 [Required] --listen-port  -p  Port where the agent listens.
 [Required] --etcd             Address of etcd service.
 [Required] --etcd-port        Address of etcd port.
            --log              (info/debug/fatal) set log level, default=info.
 
-->>> provider
-[Required] --listen        -l  Address where the agent listens.
-[Required] --listen-port   -p  Port where the agent listens.
+->>> consumer-agent
+
+
+->>> provider-agent
 [Required] --provider          Address of provider (dubbo server).
 [Required] --provider-port     Port of provider.
-[Required] --etcd              Address of etcd service.
-[Required] --etcd-port         Address of etcd port.
 )RALI"_format(RLIB_MACRO_TO_CSTR(AGENT_VERSION), RLIB_MACRO_TO_CSTR(GIT_COMMIT_NUM), argv[0]));
         exit(_stat);
     };
