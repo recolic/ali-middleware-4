@@ -28,7 +28,7 @@ namespace provider {
 
     agent::agent(const std::string &etcd_addr_and_port, const std::string &my_addr, uint16_t listen_port,
      const std::string &provider_addr, uint16_t provider_port)
-     : provider_addr(provider_addr), provider_port(provider_port), request_id(427) {
+            : provider_addr(provider_addr), provider_port(provider_port) {
         // TO/DO: Connect to etcd, register myself. Launch heartbeat thread.
         etcd_service etcd_service(etcd_addr_and_port);
         etcd_service.append("server", "{}:{}"_format(my_addr, listen_port));
@@ -38,6 +38,7 @@ namespace provider {
         // TO/DO: Launch http server, listen consumer request. If get request, then call sendto_provider().
         tcp::endpoint ep(ip::make_address(listen_addr), listen_port);
         rlog.info("Launching http server (provider_agent) at {}:{}"_format(listen_addr, listen_port));
+        rlog.debug("test debugging tool");
         asio::spawn(io_context, std::bind(&agent::listen_consumer, this, ep, std::placeholders::_1));
         io_context.run();
     }
@@ -95,6 +96,7 @@ namespace provider {
     }
 
     http::response<http::string_body> agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
+        rlog.debug("handle req");
 
         // Return 400 if not GET
         if (req.method() != http::verb::get) {
@@ -120,9 +122,8 @@ namespace provider {
             }
             kv_list.emplace_back(kv_pair[0], kv_pair[1]);
         }
-        dubbo_client dubbo(provider_addr, provider_port);
-        auto result = dubbo.request(kv_list, request_id);
-        request_id += 1;
+        dubbo_client dubbo(io_context, provider_addr, provider_port);
+        auto result = dubbo.async_request(kv_list, yield);
 
         rlog.debug("List payload:");
         for (auto &ele : result.payload) {

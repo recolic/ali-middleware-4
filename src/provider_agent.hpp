@@ -37,7 +37,6 @@ namespace provider {
         int threads;
         std::string provider_addr;
         uint16_t provider_port;
-        std::atomic_uint64_t request_id;
         boost::asio::io_context io_context;
 
         // Listen consumer request(thread or coroutine). If get request, then call session_consumer().
