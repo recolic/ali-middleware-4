@@ -95,7 +95,6 @@ namespace provider {
     }
 
     http::response<http::string_body> agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
-        rlog.debug("handle_request");
 
         // Return 400 if not GET
         if (req.method() != http::verb::get) {
@@ -118,11 +117,14 @@ namespace provider {
         dubbo_client dubbo(provider_addr, provider_port);
         auto result = dubbo.request(kv_list, request_id);
         request_id += 1;
-        rlog.debug("get_request");
+
+        rlog.debug("List payload:");
+        for (auto &ele : result.payload) {
+            rlib::print("{{}, {}}"_format(ele.first, ele.second));
+        }
+        rlib::println();
+
         if (result.status == dubbo_client::status_t::OK) {
-            for (auto &ele : result.payload) {
-                rlog.debug("{{}, {}}"_format(ele.first, ele.second));
-            }
             http::response<http::string_body> res{http::status::ok, req.version()};
             res.set(http::field::server, "rHttp");
             res.set(http::field::content_type, "text/plain");
@@ -132,7 +134,7 @@ namespace provider {
             return std::move(res);
         }
         else {
-            http::response<http::string_body> res{http::status::bad_request, req.version()};
+            http::response<http::string_body> res{http::status::internal_server_error, req.version()};
             res.set(http::field::server, "rHttp");
             res.set(http::field::content_type, "text/plain");
             res.keep_alive(req.keep_alive());
