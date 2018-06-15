@@ -55,17 +55,17 @@ public:
 
         boost::system::error_code ec;
         boost::asio::async_write(sockServer, boost::asio::buffer(&header, sizeof(header)), yield[ec]);
-        ON_BOOST_FATAL(ec);
+        if (ec) ON_BOOST_FATAL(ec);
         boost::asio::async_write(sockServer, boost::asio::buffer(payload), yield[ec]);
-        ON_BOOST_FATAL(ec);
+        if (ec) ON_BOOST_FATAL(ec);
         boost::asio::async_read(sockServer, boost::asio::buffer(&header, sizeof(header)), yield[ec]);
-        ON_BOOST_FATAL(ec);
+        if (ec) ON_BOOST_FATAL(ec);
         if(header.data_length > 1024 * 1024 * 1024)
             throw std::runtime_error("Dubbo server says the payload length is >1GiB. It's dangerous so I rejected.");
         std::string payload_buffer;
         payload_buffer.reserve(header.data_length);
         boost::asio::async_read(sockServer, boost::asio::buffer(payload_buffer), yield[ec]);
-        ON_BOOST_FATAL(ec);
+        if (ec) ON_BOOST_FATAL(ec);
 
         request_result_t result;
         result.status = (status_t)header.status;
