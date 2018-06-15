@@ -98,6 +98,7 @@ namespace provider {
 
         // Return 400 if not GET
         if (req.method() != http::verb::get) {
+            rlog.error("Warning: Non-GET request received. request dropped.");
             http::response<http::string_body> res{http::status::bad_request, req.version()};
             res.set(http::field::server, "rHttp");
             res.set(http::field::content_type, "text/plain");
@@ -108,11 +109,16 @@ namespace provider {
         }
 
         //TO/DO: Dubbo client
-        auto kv_str = rlib::string(req.body()).split("&");
+        rlog.debug("req.body() is {}"_format(req.body()));
+        auto kv_str_array = rlib::string(req.body()).split("&");
         kv_serializer::kv_list_t kv_list;
-        for (int i = 0; i < kv_str.size(); i++) {
-            auto kv_pair = rlib::string(kv_str[i]).split("=");
-            kv_list.push_back(std::make_pair(kv_pair[0], kv_pair[1]));
+        for (auto &kv_str : kv_str_array) {
+            auto kv_pair = kv_str.strip().split("=");
+            if(kv_pair.size() != 2) {
+                rlog.error("Warning: got a request with bad body `{}`"_format(req.body()));
+                continue;
+            }
+            kv_list.emplace_back(kv_pair[0], kv_pair[1]);
         }
         dubbo_client dubbo(provider_addr, provider_port);
         auto result = dubbo.request(kv_list, request_id);
