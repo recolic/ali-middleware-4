@@ -36,5 +36,9 @@ namespace consumer {
 
 }
 
+namespace dubbo {
+    using conn_pool_coro = rlib::fixed_object_pool_coro<consumer::pooled_conn, DUBBO_CLI_CONN_POOL_SIZE, boost::asio::io_context &, std::string, uint16_t>;
+}
+
 
 #endif //ALI_MIDDLEWARE_AGENT_CONN_POOL_HPP

@@ -101,8 +101,6 @@ namespace consumer {
     }
 
     http::response<http::string_body> agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
-        rlog.debug("handle_request");
-
         // Only serve GET request. Return 400 if not GET.
         if (req.method() != http::verb::get) {
             http::response<http::string_body> res{http::status::bad_request, req.version()};

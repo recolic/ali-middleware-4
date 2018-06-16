@@ -17,6 +17,7 @@
 
 #include <boost/asio/spawn.hpp>
 #include <boost/beast/http.hpp>
+#include <dubbo_client.hpp>
 
 extern rlib::logger rlog; // definition in src/main.cc
 
@@ -38,6 +39,7 @@ namespace provider {
         std::string provider_addr;
         uint16_t provider_port;
         boost::asio::io_context io_context;
+        dubbo_client dubbo;
 
         // Listen consumer request(thread or coroutine). If get request, then call session_consumer().
         void listen_consumer(boost::asio::ip::tcp::endpoint endpoint, boost::asio::yield_context yield);
