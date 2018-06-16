@@ -38,7 +38,7 @@ public:
 
     request_result_t sync_request(const std::string &service_name, const std::string &method_name, const std::string &method_arg_type, const std::string &method_arg) {
         // You must NEVER edit this string below without carefully consideration!
-        const std::string payload = R"RALI("2.0.1"
+        const std::string payload = R"RALI("2.6.1"
 "{}"
 null
 "{}"
@@ -74,11 +74,13 @@ null
 
         if(header.data_length > 1024 * 1024 * 1024)
             throw std::runtime_error("Dubbo server says the payload length is >1GiB. It's dangerous so I rejected.");
-        //std::string payload_buffer(header.data_length, 'E');
-        std::vector<char> debug_vct(header.data_length);
-        //boost::asio::read(sockServer, boost::asio::buffer(const_cast<char *>(const_cast<std::string &>(payload_buffer).data()), header.data_length));
-        boost::asio::read(sockServer, boost::asio::buffer(debug_vct, header.data_length));
-        std::string payload_buffer(debug_vct.begin(), debug_vct.end());
+        std::string payload_buffer(header.data_length, 'E');
+        //char *debug_vct = new char[header.data_length]{};
+        boost::asio::read(sockServer, boost::asio::buffer(const_cast<char *>(const_cast<std::string &>(payload_buffer).data()), header.data_length));
+        //auto sz = boost::asio::read(sockServer, boost::asio::buffer(debug_vct, header.data_length));
+        //rlog.debug("readn ret = {}"_format(sz));
+        //std::string payload_buffer(debug_vct, header.data_length);
+        rlog.debug("read payload = `{}`"_format(payload_buffer));
 
 
         if(header.magic != 0xbbda)
