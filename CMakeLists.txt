@@ -21,10 +21,11 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
     # using Visual Studio C++
 endif()
 
-execute_process(COMMAND bash -c "git log | head -n 1 | cut -d ' ' -f 2" OUTPUT_VARIABLE GIT_COMMIT_N)
+execute_process(COMMAND bash -c "git log | head -n 1 | cut -d ' ' -f 2 | tr '\n' ' '" OUTPUT_VARIABLE GIT_COMMIT_N)
 add_definitions(-DGIT_COMMIT_NUM=${GIT_COMMIT_N})
 
 add_definitions(-DBOOST_COROUTINES_NO_DEPRECATION_WARNING)
+add_definitions(-DRDUBBO_OBEY_APACHEDOC)
 
 add_definitions(-DAGENT_VERSION=1.0.1)
 add_definitions(-DDEBUG_SERVER_ADDR=www.aliyun.com)
@@ -33,6 +34,7 @@ add_definitions(-DAGENT_CONN_POOL_SIZE=4)
 
 include_directories(./lib)
 include_directories(./src)
+
 
 set(Boost_USE_STATIC_LIBS ON)
 find_package(Threads REQUIRED)
@@ -51,6 +53,7 @@ add_executable(test-traceable-list test/traceable_list.cc lib/traceable_list.hpp
 add_executable(test-pool test/pool.cc lib/pool.hpp ${RLIB_SRC})
 add_executable(test-threaded-conn-pool test/conn_pool.cc lib/conn_pool.hpp ${RLIB_SRC})
 add_executable(test-asio-event test/boost_asio_event.cc lib/boost_asio_event.hpp ${RLIB_SRC})
+add_executable(test-dubbo-client test/dubbo.cc lib/dubbo_client.hpp ${RLIB_SRC})
 
 target_link_libraries(agent Threads::Threads)
 target_link_libraries(agent Boost::system)
@@ -65,3 +68,5 @@ target_link_libraries(test-threaded-conn-pool Boost::system)
 target_link_libraries(test-asio-event Threads::Threads)
 target_link_libraries(test-asio-event Boost::system)
 target_link_libraries(test-asio-event Boost::coroutine)
+target_link_libraries(test-dubbo-client Boost::system)
+target_link_libraries(test-dubbo-client Boost::coroutine)

@@ -16,6 +16,8 @@
 #include <boost_asio_quick_connect.hpp>
 
 #include <rlib/scope_guard.hpp>
+#define BOOST_ENDIAN_DEPRECATED_NAMES
+#include <boost/endian/endian.hpp>
 
 class dubbo_client
 {
@@ -33,6 +35,61 @@ public:
         status_t status;
         kv_serializer::kv_list_t payload;
     };
+
+    request_result_t sync_request(const std::string &service_name, const std::string &method_name, const std::string &method_arg_type, const std::string &method_arg) {
+        // You must NEVER edit this string below without carefully consideration!
+        const std::string payload = R"RALI("2.0.1"
+"{}"
+null
+"{}"
+"{}"
+"{}"
+{"path":"{}"}
+)RALI"_format(service_name, method_name, method_arg_type, method_arg, service_name);
+        // You must NEVER edit this string above without carefully consideration!
+
+        dubbo_header header;
+        header.is_request = 1;
+        header.need_return = 1;
+        header.is_event = 0;
+        header.serialization_id = 6;
+        header.status = 0;
+        header.request_id = curr_request_id;
+        header.data_length = boost::endian::native_to_big((uint32_t)payload.size());
+
+        rlog.debug("Payload size {} is ready."_format(payload.size()));
+        curr_request_id += 1;
+
+        // TODO: reuse connection.
+        auto sockServer = boost::asio::quick_connect(io_context, server_addr, server_port);
+
+        boost::asio::write(sockServer, boost::asio::buffer(&header, sizeof(header)));
+        boost::asio::write(sockServer, boost::asio::buffer(payload));
+        rlog.debug("dubbo message sent.");
+        boost::asio::read(sockServer, boost::asio::buffer(&header, sizeof(header)));
+        header.data_length = boost::endian::big_to_native(header.data_length);
+
+        rlog.debug("dubbo return info: is_req={}, need_ret={}, is_event={}, serialize_id={}, status={}"_format(header.is_request, header.need_return, header.is_event, header.serialization_id, header.status));
+        rlog.debug("    req_id={}, data_len={}"_format(header.request_id, header.data_length));
+
+        if(header.data_length > 1024 * 1024 * 1024)
+            throw std::runtime_error("Dubbo server says the payload length is >1GiB. It's dangerous so I rejected.");
+        //std::string payload_buffer(header.data_length, 'E');
+        std::vector<char> debug_vct(header.data_length);
+        //boost::asio::read(sockServer, boost::asio::buffer(const_cast<char *>(const_cast<std::string &>(payload_buffer).data()), header.data_length));
+        boost::asio::read(sockServer, boost::asio::buffer(debug_vct, header.data_length));
+        std::string payload_buffer(debug_vct.begin(), debug_vct.end());
+
+
+        if(header.magic != 0xbbda)
+            throw std::runtime_error("dubbo_client.hpp:Dubbo returns wrong magic.");
+
+        request_result_t result;
+        result.status = (status_t)header.status;
+        result.payload = json_serializer().deserialize(payload_buffer);
+        return std::move(result);
+    }
+
 
     request_result_t async_request(const kv_serializer::kv_list_t &parameter, boost::asio::yield_context &yield) {
         return std::move(async_request(json_serializer().serialize(parameter), yield));
@@ -67,6 +124,12 @@ public:
         boost::asio::async_read(sockServer, boost::asio::buffer(payload_buffer), yield[ec]);
         if (ec) ON_BOOST_FATAL(ec);
 
+        rlog.debug("dubbo return info: is_req={}, need_ret={}, is_event={}, serialize_id={}, status={}"_format(header.is_request, header.need_return, header.is_event, header.serialization_id, header.status));
+        rlog.debug("    req_id={}, data_len={}, data=`{}`"_format(header.request_id, header.data_length, payload_buffer));
+
+        if(header.magic != 0xbbda)
+            throw std::runtime_error("dubbo_client.hpp:Dubbo returns wrong magic.");
+
         request_result_t result;
         result.status = (status_t)header.status;
         result.payload = json_serializer().deserialize(payload_buffer);
@@ -81,14 +144,23 @@ private:
     boost::asio::io_context &io_context;
 
     struct dubbo_header {
-        uint16_t magic = 0xdabb;
+        uint16_t magic = 0xbbda;
+#if defined(RDUBBO_OBEY_ALIDOC)
         unsigned is_request : 1;
         unsigned need_return : 1;
         unsigned is_event : 1;
+#define RDUBBO_DOC_DEFINED
+#endif
 #if RLIB_CXX_STD >= 2020
         unsigned serialization_id : 5 = 6;
 #else
         unsigned serialization_id : 5;
+#endif
+#if defined(RDUBBO_OBEY_APACHEDOC)
+        unsigned is_event : 1;
+        unsigned need_return : 1;
+        unsigned is_request : 1;
+#define RDUBBO_DOC_DEFINED
 #endif
         uint8_t status;
         uint64_t request_id;
@@ -96,5 +168,8 @@ private:
     } __attribute__((packed));
 };
 
+#ifndef RDUBBO_DOC_DEFINED
+#error You must define either RDUBBO_OBEY_ALIDOC or RDUBBO_OBEY_APACHEDOC.
+#endif
 
 #endif //ALI_MIDDLEWARE_AGENT_DUBBO_CLIENT_HPP

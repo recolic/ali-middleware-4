@@ -32,11 +32,13 @@ public:
         return std::move(result);
     }
     virtual kv_list_t deserialize(const std::string &json) const {
+        kv_list_t result;
+        if(json.empty())
+            return std::move(result);
         ptree pt;
         std::stringstream ss(json);
         read_json(ss, pt);
 
-        kv_list_t result;
         std::for_each(pt.begin(), pt.end(), [&result](auto pos){
             // Iterate over only one level.
             std::pair<key_t, value_t> kv {pos.first, pos.second.get_value(std::string(""))};
