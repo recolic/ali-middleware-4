@@ -15,7 +15,7 @@ void etcd_service::append(const etcd_service::key_type &key, const etcd_service:
     auto origin_val = sync_get(key);
     if(!origin_val.empty()) origin_val += '|';
     origin_val += value;
-    sync_set(key, value);
+    sync_set(key, origin_val);
 }
 
 std::vector<rlib::string> etcd_service::get_list(const etcd_service::key_type &key) {
