@@ -27,7 +27,7 @@ add_definitions(-DGIT_COMMIT_NUM=${GIT_COMMIT_N})
 add_definitions(-DBOOST_COROUTINES_NO_DEPRECATION_WARNING)
 add_definitions(-DRDUBBO_OBEY_APACHEDOC)
 
-add_definitions(-DAGENT_VERSION=1.0.1)
+add_definitions(-DAGENT_VERSION=2.0.0)
 add_definitions(-DDEBUG_SERVER_ADDR=www.aliyun.com)
 add_definitions(-DDEBUG_SERVER_PORT=80)
 add_definitions(-DAGENT_CONN_POOL_SIZE=256)
