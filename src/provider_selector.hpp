@@ -118,6 +118,7 @@ namespace consumer {
                     throw std::runtime_error("Bad server_addr from etcd: `{}`."_format(_addr));
                 providers.emplace_back(io_context, addr_and_port[0], addr_and_port[1].as<uint16_t>());
             }
+            rlog.debug("Loaded {} providers."_format(providers.size()));
             if(providers.empty())
                 throw std::runtime_error("No provider available. Unable to provide service...");
         }

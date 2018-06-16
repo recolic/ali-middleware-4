@@ -106,6 +106,7 @@ null
 {"path":"{}"}
 )RALI"_format(service_name, method_name, method_arg_type, method_arg, service_name);
         // You must NEVER edit this string above without carefully consideration!
+        rlog.debug("Sending dubbo payload `{}`"_format(payload));
 
         dubbo_header header;
         header.is_request = 1;
@@ -121,9 +122,6 @@ null
         auto borrowed_conn = pconns->borrow_one(yield);
         rlib_defer([&] { pconns->release_one(borrowed_conn); });
         boost::asio::ip::tcp::socket &sockServer = borrowed_conn->get();
-
-        // TODO: reuse connection.
-        //auto sockServer = boost::asio::async_quick_connect(io_context, server_addr, server_port, yield);
 
         boost::system::error_code ec;
         boost::asio::async_write(sockServer, boost::asio::buffer(&header, sizeof(header)), yield[ec]);

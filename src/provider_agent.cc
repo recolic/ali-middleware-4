@@ -77,21 +77,25 @@ namespace provider {
         // TO/DO: Do session with consumer
         boost::system::error_code ec;
         boost::beast::flat_buffer buffer;
-        rlog.debug("session launched.");
 
-        while (true) {
-            http::request<http::string_body> req;
-            http::async_read(conn, buffer, req, yield[ec]);
-            if (ec == http::error::end_of_stream)
-                break;
-            if (ec) ON_BOOST_FATAL(ec);
+        try {
+            while (true) {
+                http::request<http::string_body> req;
+                http::async_read(conn, buffer, req, yield[ec]);
+                if (ec == http::error::end_of_stream)
+                    break;
+                if (ec) ON_BOOST_FATAL(ec);
 
-            auto response = handle_request(std::move(req), yield);
+                auto response = handle_request(std::move(req), yield);
 
-            http::async_write(conn, response, yield[ec]);
+                http::async_write(conn, response, yield[ec]);
 
-            if (!response.keep_alive())
-                break;
+                if (!response.keep_alive())
+                    break;
+            }
+        }
+        catch (std::exception &ex) {
+            rlog.error("Exception caught at provider session: {}"_format(ex.what()));
         }
 
         conn.shutdown(tcp::socket::shutdown_send, ec);
@@ -102,9 +106,9 @@ namespace provider {
     agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
         rlog.debug("handle req");
 
-        // Return 400 if not GET
-        if (req.method() != http::verb::get) {
-            rlog.error("Warning: Non-GET request received. request dropped.");
+        // Return 400 if not POST
+        if (req.method() != http::verb::post) {
+            rlog.error("Warning: Non-POST request received. request dropped.");
             http::response<http::string_body> res{http::status::bad_request, req.version()};
             res.set(http::field::server, "rHttp");
             res.set(http::field::content_type, "text/plain");
@@ -115,28 +119,34 @@ namespace provider {
         }
 
         //TO/DO: Dubbo client
-        /** It's important to analyse req.body quickly, so I'll write it by hand **/
-        rlog.debug("req.body() is {}"_format(req.body()));
         auto kv_str_array = rlib::string(req.body()).split("&");
         std::array<std::string, 4> dubbo_rpc_args;
         for (auto &&kv_str : kv_str_array) {
-            auto kv_pair = kv_str.split("=");
-            if (kv_pair.size() != 2) {
-                rlog.error("Warning: got a request with bad body `{}`"_format(req.body()));
+            auto pos = kv_str.find('=');
+            if (pos == std::string::npos) {
+                rlog.error("bad kv_Str `{}` skipped"_format(kv_str));
                 continue;
             }
+            auto key = kv_str.substr(0, pos);
+            auto val = kv_str.substr(pos + 1);
 
-            if (kv_pair[0] == "interface")
-                dubbo_rpc_args[0] = std::move(kv_pair[1]);
-            else if (kv_pair[0] == "method")
-                dubbo_rpc_args[1] = std::move(kv_pair[1]);
-            else if (kv_pair[0] == "parameterTypesString")
-                dubbo_rpc_args[2] = std::move(kv_pair[1]);
-            else if (kv_pair[0] == "parameter")
-                dubbo_rpc_args[3] = std::move(kv_pair[1]);
+            if (key == "interface")
+                dubbo_rpc_args[0] = std::move(val);
+            else if (key == "method")
+                dubbo_rpc_args[1] = std::move(val);
+            else if (key == "parameterTypesString")
+                dubbo_rpc_args[2] = std::move(val);
+            else if (key == "parameter")
+                dubbo_rpc_args[3] = std::move(val);
             else
                 rlog.error("Warning: got a request with bad body `{}`"_format(req.body()));
         }
+        dubbo_rpc_args[2] = rlib::string(std::move(dubbo_rpc_args[2])).replace("%2F", "/").replace("%3B", ";");
+        for (auto &s : dubbo_rpc_args) {
+            if (s.empty())
+                throw std::runtime_error("Required http argument not provided.");
+        }
+
         auto result = dubbo.async_request(dubbo_rpc_args[0], dubbo_rpc_args[1], dubbo_rpc_args[2], dubbo_rpc_args[3], yield);
 
         rlog.debug("Dubbo request result is `{}`"_format(result.value));
@@ -163,5 +173,6 @@ namespace provider {
     [[noreturn]] void agent::etcd_register_and_heartbeat(const std::string &etcd_addr_and_port) {
         // TODO: Send heartbeat packet to etcd.
     }
+
 }
 

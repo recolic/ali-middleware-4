@@ -101,9 +101,10 @@ namespace consumer {
     }
 
     http::response<http::string_body> agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
-        // Only serve GET request. Return 400 if not GET.
-        if (req.method() != http::verb::get) {
+        // Only serve POST request. Return 400 if not GET.
+        if (req.method() != http::verb::post) {
             http::response<http::string_body> res{http::status::bad_request, req.version()};
+            rlog.debug("Request is not post. Giving 400.");
             res.set(http::field::server, "rHttp");
             res.set(http::field::content_type, "text/plain");
             res.keep_alive(req.keep_alive());
