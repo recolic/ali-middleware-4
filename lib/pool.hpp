@@ -187,13 +187,11 @@ namespace rlib {
 
                 typename buffer_t::iterator elem_iter(result);
                 elem_iter.get_extra_info() = false; // mark as busy.
-                rlog.debug("obj pool hit");
                 return result;
             }
             if (buffer.size() < max_size) {
                 new_obj_to_buffer();
                 free_list.push_back(&*--buffer.end());
-                rlog.debug("increasing obj pool...(size{})"_format(buffer.size()));
                 goto gt_borrow_again;
             }
             return nullptr;

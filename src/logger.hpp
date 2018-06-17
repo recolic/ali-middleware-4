@@ -12,5 +12,7 @@ using rlib::literals::operator ""_format;
         return; } while(false)
 #define RBOOST_LOG_EC(ec, level) rlog.log("boost error at {}:{}, {}"_format(__FILE__, __LINE__, ec.message()), level)
 
+#define RDEBUG_CURR_TIME_VAR(var_name) auto var_name = std::chrono::high_resolution_clock::now()
+#define RDEBUG_LOG_TIME_DIFF(time_R, time_L, cstr_name) rlog.debug(cstr_name" used {} us."_format(std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count()))
 
 #endif //_ALI_MIDDLEWARE_AGENT_LOGGER_HPP

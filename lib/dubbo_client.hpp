@@ -107,7 +107,6 @@ null
 {"path":"{}"}
 )RALI"_format(service_name, method_name, method_arg_type, method_arg, service_name);
         // You must NEVER edit this string above without carefully consideration!
-        rlog.debug("Sending dubbo payload `{}`"_format(payload));
 
         dubbo_header header;
         header.is_request = 1;
@@ -130,17 +129,10 @@ null
         boost::asio::async_write(sockServer, boost::asio::buffer(payload), yield[ec]);
         if(ec) ON_BOOST_FATAL(ec);
 
-        auto time_L = std::chrono::high_resolution_clock::now();
         boost::asio::async_read(sockServer, boost::asio::buffer(&header, sizeof(header)), yield[ec]);
-        auto time_R = std::chrono::high_resolution_clock::now();
-        auto dura = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
-        rlog.debug("Dubbo query latency = {}"_format(dura));
 
         if(ec) ON_BOOST_FATAL(ec);
         header.data_length = boost::endian::big_to_native(header.data_length);
-
-        rlog.debug("dubbo return info: is_req={}, need_ret={}, is_event={}, serialize_id={}, status={}"_format(header.is_request, header.need_return, header.is_event, header.serialization_id, header.status));
-        rlog.debug("    req_id={}, data_len={}"_format(header.request_id, header.data_length));
 
         if(header.data_length > 1024 * 1024 * 1024)
             throw std::runtime_error("Dubbo server says the payload length is >1GiB. It's dangerous so I rejected.");
