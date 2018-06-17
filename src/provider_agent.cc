@@ -84,6 +84,7 @@ namespace provider {
                 char req_buffer[2048] = {0};
                 RDEBUG_CURR_TIME_VAR(time1);
                 //http::async_read(conn, buffer, req, yield[ec]);
+                // TODO TODO URGENT: This statement is slow. (takes 50ms-130ms or so)
                 conn.async_read_some(asio::buffer(req_buffer, 2048), yield[ec]);
                 //if (ec == http::error::end_of_stream)
                 //break;
