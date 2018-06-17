@@ -101,16 +101,19 @@ namespace consumer {
     }
 
     http::response<http::string_body> agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
-        // Only serve POST request. Return 400 if not GET.
-        if (req.method() != http::verb::post) {
-            http::response<http::string_body> res{http::status::bad_request, req.version()};
-            rlog.debug("Request is not post. Giving 400.");
+        static const auto resp_400 = []{
+            http::response<http::string_body> res{http::status::bad_request, 11};
             res.set(http::field::server, "rHttp");
             res.set(http::field::content_type, "text/plain");
-            res.keep_alive(req.keep_alive());
+            res.keep_alive(false);
             res.body() = "bad request";
             res.prepare_payload();
             return std::move(res);
+        }();
+        // Only serve POST request. Return 400 if not GET.
+        if (req.method() != http::verb::post) {
+            rlog.debug("Request is not post. Giving 400.");
+            return resp_400;
         }
 
         provider_info &provider = selector.query_once();
@@ -125,7 +128,6 @@ namespace consumer {
         } else {
             res.keep_alive(req.keep_alive());
         }
-        rlog.debug("handle_request done.");
         return std::move(res);
     }
 }

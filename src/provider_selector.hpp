@@ -51,8 +51,8 @@ namespace consumer {
             http::response<string_body> res;
             boost::beast::flat_buffer buffer;
 
-            static const resp_500 = [] {
-                http::response<http::string_body> res{http::status::internal_server_error};
+            static const auto resp_500 = [] {
+                http::response<http::string_body> res{http::status::internal_server_error, 11};
                 res.set(http::field::server, "rHttp");
                 res.set(http::field::content_type, "text/plain");
                 res.body() = "server error";
