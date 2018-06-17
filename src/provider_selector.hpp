@@ -22,12 +22,48 @@
 #include <boost/asio/spawn.hpp>
 #include <rlib/scope_guard.hpp>
 
+using rlib::literals::operator ""_rs;
+
 #ifdef ALI_MIDDLEWARE_AGENT_CONSUMER_AGENT_HPP_
 #error consumer_agent.hpp must not be included before provider_selector.hpp.
 #endif
 
 namespace consumer {
     namespace http = boost::beast::http;
+    namespace asio = boost::asio;
+
+    inline auto http_payload_to_dubbo_parameters(std::string &text) {
+        auto kv_str_array = rlib::string(text).split("&");
+        std::array<std::string, 4> dubbo_rpc_args;
+        for (auto &&kv_str : kv_str_array) {
+            auto pos = kv_str.find('=');
+            if (pos == std::string::npos) {
+                rlog.error("bad kv_Str `{}` skipped"_format(kv_str));
+                continue;
+            }
+            auto key = kv_str.substr(0, pos);
+            auto val = kv_str.substr(pos + 1);
+
+            if (key == "interface")
+                dubbo_rpc_args[0] = std::move(val);
+            else if (key == "method")
+                dubbo_rpc_args[1] = std::move(val);
+            else if (key == "parameterTypesString")
+                dubbo_rpc_args[2] = std::move(val);
+            else if (key == "parameter")
+                dubbo_rpc_args[3] = std::move(val);
+            else
+                rlog.error("Warning: got a request with bad body `{}`"_format(text));
+        }
+        dubbo_rpc_args[2] = rlib::string(std::move(dubbo_rpc_args[2])).replace("%2F", "/").replace("%3B", ";");
+        for (auto &s : dubbo_rpc_args) {
+            if (s.empty()) {
+                rlog.error("Exception detail: par is `{}`"_format(text));
+                throw std::runtime_error("Required http argument not provided.");
+            }
+        }
+        return std::move(dubbo_rpc_args);
+    }
 
     // Manage connection to provider_agent servers. You must reuse these connections.
     class provider_info : rlib::noncopyable {
@@ -62,29 +98,45 @@ namespace consumer {
                 return std::move(res);
             }();
 
-            auto time_Lc = std::chrono::high_resolution_clock::now();
+            RDEBUG_CURR_TIME_VAR(time1);
             auto borrowed_conn = pconns->borrow_one(yield);
             rlib_defer([&] { pconns->release_one(borrowed_conn); });
             boost::asio::ip::tcp::socket &conn = borrowed_conn->get();
-            auto time_Rc = std::chrono::high_resolution_clock::now();
-            connpool_latency = std::chrono::duration_cast<std::chrono::microseconds>(time_Rc - time_Lc).count();
-            rlog.debug("connpool used {} us"_format(connpool_latency.load()));
+            RDEBUG_CURR_TIME_VAR(time2);
+            RDEBUG_LOG_TIME_DIFF(time2, time1, "conn_pool time");
 
-            http::async_write(conn, req, yield[ec]);
+            std::string req_text;
+            try {
+                auto dubbo_args = http_payload_to_dubbo_parameters(req.body());
+                req_text = "\n"_rs.join(dubbo_args.begin(), dubbo_args.end());
+            }
+            catch (std::exception &e) {
+                return resp_500;
+            }
+            asio::async_write(conn, asio::buffer(req_text), yield[ec]);
+
+            //http::async_write(conn, req, yield[ec]);
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
                 return resp_500;
             }
+
             auto time_L = std::chrono::high_resolution_clock::now();
-            http::async_read(conn, buffer, res, yield[ec]);
+            RDEBUG_LOG_TIME_DIFF(time_L, time2, "write time");
+            char resp_buffer[2048]{0};
+            conn.async_read_some(asio::buffer(resp_buffer, 2048), yield[ec]);
+            //http::async_read(conn, buffer, res, yield[ec]);
+            rlog.debug("read: `{}`"_format(resp_buffer));
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
                 return resp_500;
             }
             auto time_R = std::chrono::high_resolution_clock::now();
             latency = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
-            //rlog.debug("latency is {}"_format(latency));
-            
+            RDEBUG_LOG_TIME_DIFF(time_R, time_L, "read time");
+
+            res.body() = resp_buffer;
+            res.prepare_payload();
             return std::move(res);
         }
 

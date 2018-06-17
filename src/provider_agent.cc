@@ -80,22 +80,35 @@ namespace provider {
 
         try {
             while (true) {
-                http::request<http::string_body> req;
-                http::async_read(conn, buffer, req, yield[ec]);
-                if (ec == http::error::end_of_stream)
-                    break;
-                if (ec) ON_BOOST_FATAL(ec);
+                //http::request<http::string_body> req;
+                char req_buffer[2048] = {0};
+                RDEBUG_CURR_TIME_VAR(time1);
+                //http::async_read(conn, buffer, req, yield[ec]);
+                conn.async_read_some(asio::buffer(req_buffer, 2048), yield[ec]);
+                //if (ec == http::error::end_of_stream)
+                //break;
+                if (ec && ec != boost::asio::error::eof) ON_BOOST_FATAL(ec);
+                rlog.debug("read_ `{}`"_format(req_buffer));
 
-                auto time_L = std::chrono::high_resolution_clock::now();
-                auto response = handle_request(std::move(req), yield);
-                auto time_R = std::chrono::high_resolution_clock::now();
-                auto dura = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
-                rlog.debug("Provider handle_req latency = {}"_format(dura));
+                RDEBUG_CURR_TIME_VAR(time2);
+                //auto response = handle_request(std::move(req), yield);
+                auto req_args = rlib::string(req_buffer).split('\n');
+                auto result = dubbo.async_request(req_args[0], req_args[1], req_args[2], req_args[3], yield);
+                if (result.status != dubbo_client::status_t::OK)
+                    throw std::runtime_error("dubbo not ok.");
+                // TODO: may optimize: 1-2 ms
+                RDEBUG_CURR_TIME_VAR(time3);
 
-                http::async_write(conn, response, yield[ec]);
+                rlog.debug("returning `{}`"_format(result.value));
+                asio::async_write(conn, asio::buffer(result.value), yield[ec]);
+                //http::async_write(conn, response, yield[ec]);
+                RDEBUG_CURR_TIME_VAR(time4);
+                RDEBUG_LOG_TIME_DIFF(time2, time1, "read_time");
+                RDEBUG_LOG_TIME_DIFF(time3, time2, "handle_req_time");
+                RDEBUG_LOG_TIME_DIFF(time4, time3, "write_time");
 
-                if (!response.keep_alive())
-                    break;
+                //if (!response.keep_alive())
+                //    break;
             }
         }
         catch (std::exception &ex) {
@@ -147,8 +160,10 @@ namespace provider {
         }
         dubbo_rpc_args[2] = rlib::string(std::move(dubbo_rpc_args[2])).replace("%2F", "/").replace("%3B", ";");
         for (auto &s : dubbo_rpc_args) {
-            if (s.empty())
+            if (s.empty()) {
+                rlog.error("Exception detail: par is `{}`"_format(req.body()));
                 throw std::runtime_error("Required http argument not provided.");
+            }
         }
 
         auto result = dubbo.async_request(dubbo_rpc_args[0], dubbo_rpc_args[1], dubbo_rpc_args[2], dubbo_rpc_args[3], yield);
