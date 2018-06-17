@@ -10,6 +10,7 @@
 #include <conn_pool.hpp>
 #include <string>
 #include <list>
+#include <chrono>
 
 #include <rlib/log.hpp>
 #include <rlib/macro.hpp>
@@ -36,15 +37,13 @@ namespace consumer {
 
         // Connect to provider_agent and preserve connection.
         provider_info(boost::asio::io_context &ioContext, std::string addr, uint16_t port)
-                : io_context(ioContext), hostname(addr),
-                  pconns(new conn_pool_coro(ioContext, ioContext, addr, (uint16_t) port))
-        {}
+                : io_context(ioContext), hostname(addr), latency(100000),
+                  pconns(new conn_pool_coro(ioContext, ioContext, addr, (uint16_t) port)) {}
 
         // Auto-generated move constructor is ambiguous.
         provider_info(provider_info &&another)
                 : io_context(another.io_context), hostname(std::move(another.hostname)),
-                  pconns(std::move(another.pconns))
-        {}
+                  pconns(std::move(another.pconns)), latency(100000) {}
 
         inline boost::beast::http::response<string_body>
         async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &yield) {
@@ -65,6 +64,7 @@ namespace consumer {
             rlib_defer([&] { pconns->release_one(borrowed_conn); });
             boost::asio::ip::tcp::socket &conn = borrowed_conn->get();
 
+            auto time_L = std::chrono::high_resolution_clock::now();
             http::async_write(conn, req, yield[ec]);
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
@@ -75,6 +75,10 @@ namespace consumer {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
                 return gen_500();
             }
+            auto time_R = std::chrono::high_resolution_clock::now();
+            auto _latency = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
+            rlog.debug("latency is {}"_format(_latency));
+            latency = _latency;
             return std::move(res);
         }
 
@@ -88,6 +92,7 @@ namespace consumer {
         std::string hostname;
 
         // Other data structure for burden level measurement.
+        std::atomic_uint32_t latency; // us
     };
 
     class provider_selector : rlib::noncopyable {
@@ -106,29 +111,52 @@ namespace consumer {
             return *providers.begin();
         }
 #else
+
         // Connect to etcd and fetch server list. You must use gRPC or REST API.
         provider_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
-            : io_context(io_context), etcd(etcd_addr_and_port) {
+                : io_context(io_context), etcd(etcd_addr_and_port) {
             auto addr_list = etcd.get_list("server");
-            for(const auto &_addr : addr_list) {
-                if(_addr.empty())
+            for (const auto &_addr : addr_list) {
+                if (_addr.empty())
                     continue;
                 auto addr_and_port = _addr.split(':');
-                if(addr_and_port.size() != 2)
+                if (addr_and_port.size() != 2)
                     throw std::runtime_error("Bad server_addr from etcd: `{}`."_format(_addr));
                 providers.emplace_back(io_context, addr_and_port[0], addr_and_port[1].as<uint16_t>());
             }
             rlog.debug("Loaded {} providers."_format(providers.size()));
-            if(providers.empty())
+            if (providers.empty())
                 throw std::runtime_error("No provider available. Unable to provide service...");
+
+            for (auto &provider : providers) {
+                if (provider.get_host() == "provider-small")
+                    robin_queue.push_back(&provider);
+                else if (provider.get_host() == "provider-medium") {
+                    robin_queue.push_back(&provider);
+                    robin_queue.push_back(&provider);
+                } else if (provider.get_host() == "provider-large") {
+                    robin_queue.push_back(&provider);
+                    robin_queue.push_back(&provider);
+                    robin_queue.push_back(&provider);
+                } else {
+                    throw std::runtime_error("naive robin found unknown provider.");
+                }
+            }
         }
 
         // Select one provider to query, do auto-balance here.
         // Determine which provider to query. Potential performance bottleneck here, MUST BE QUICK!
-        provider_info &query_once();
+        provider_info &query_once() {
+            static decltype(robin_queue.begin()) curr = robin_queue.begin();
+            if (curr == robin_queue.end())
+                curr = robin_queue.begin();
+            return **(curr++);
+        }
 
     private:
         etcd_service etcd;
+        // TODO: select the one with lowest latency.
+        std::list<provider_info *> robin_queue;
 #endif
 
 

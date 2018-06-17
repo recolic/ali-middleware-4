@@ -7,11 +7,3 @@
 namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
 
-#ifndef PROVIDER_SELECTOR_NO_USE_ETCD
-consumer::provider_info &consumer::provider_selector::query_once() {
-    static size_t curr = 0;
-    if(curr == providers.size())
-        curr = 0;
-    return providers[curr++];
-}
-#endif

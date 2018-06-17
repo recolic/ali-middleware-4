@@ -50,7 +50,7 @@ private:
         return resp.prev_value().as_string();
     }
 
-    [[gnu::unused]] std::vector<std::pair<key_type, value_type>> cache;
+    //std::vector<std::pair<key_type, value_type>> cache;
     etcd::Client cli;
 };
 
