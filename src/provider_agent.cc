@@ -86,7 +86,11 @@ namespace provider {
                     break;
                 if (ec) ON_BOOST_FATAL(ec);
 
+                auto time_L = std::chrono::high_resolution_clock::now();
                 auto response = handle_request(std::move(req), yield);
+                auto time_R = std::chrono::high_resolution_clock::now();
+                auto dura = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
+                rlog.debug("Provider handle_req latency = {}"_format(dura));
 
                 http::async_write(conn, response, yield[ec]);
 

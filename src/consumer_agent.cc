@@ -83,6 +83,7 @@ namespace consumer {
 
         while (true) {
             http::request<http::string_body> req;
+
             http::async_read(conn, buffer, req, yield[ec]);
             if (ec == http::error::end_of_stream)
                 break;
@@ -116,10 +117,19 @@ namespace consumer {
             return resp_400;
         }
 
-        provider_info &provider = selector.query_once();
+        provider_info *provider = selector.query_once();
+        if(provider == nullptr) {
+            rlog.error("All server latency over 100us... Dropping request...");
+            return resp_400; // TODO: must use 502
+        }
         req.set(http::field::user_agent, "rHttp");
-        req.set(http::field::host, provider.get_host());
-        auto res = provider.async_request(req, yield);
+        req.set(http::field::host, provider->get_host());
+
+        auto time_L = std::chrono::high_resolution_clock::now();
+        auto res = provider->async_request(req, yield);
+        auto time_R = std::chrono::high_resolution_clock::now();
+        auto _latency = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
+        rlog.debug("async_req latency = {}"_format(_latency));
 
         res.set(http::field::server, "rHttp");
         if (res.result() == http::status::internal_server_error) {

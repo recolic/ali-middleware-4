@@ -36,7 +36,7 @@ Args:
            --log              (info/debug/fatal) set log level, default=info.
 
 ->>> consumer-agent
-
+           --threads          Threads. default=1.
 
 ->>> provider-agent
 [Required] --provider          Address of provider (dubbo server).
@@ -51,6 +51,9 @@ Args:
     rlib::opt_parser opt(argc, argv);
     if (opt.getBoolArg("--help", "-h"))
         help_and_exit(0);
+
+    rlib::enable_endl_flush(false);
+    rlib::sync_with_stdio(false);
 
     auto whoami = opt.getCommand();
     auto log_level = opt.getValueArg("--log", false);
@@ -80,7 +83,7 @@ Args:
         auto etcd_addr = opt.getValueArg("--etcd");
         auto etcd_port = opt.getValueArg("--etcd-port").as<uint16_t>();
 
-        consumer::agent agent("{}:{}"_format(etcd_addr, etcd_port));
+        consumer::agent agent("{}:{}"_format(etcd_addr, etcd_port), opt.getValueArg("--threads", false, "1").as<int>());
         rlog.info("'{}' is listening {}:{} as consumer, with etcd server set to {}:{}."_format(whoami, listen_addr, listen_port, etcd_addr, etcd_port));
         agent.listen(listen_addr, listen_port);
     }

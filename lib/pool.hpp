@@ -34,12 +34,19 @@ namespace rlib {
             return do_try_borrow_one();
         }
         obj_t *borrow_one() {
+            rlog.debug("borrow_one:");
             auto result = try_borrow_one();
             if(result)
                 return result;
             // Not available. Wait for release_one.
             std::unique_lock<std::mutex> lk(buffer_mutex);
+
+            rlog.debug("full pool. waiting for release");
+            auto time_Lc = std::chrono::high_resolution_clock::now();
             borrow_cv.wait(lk, [this]{return this->new_obj_ready;});
+            auto time_Rc = std::chrono::high_resolution_clock::now();
+            rlog.debug("obj_pool: waited for {} us"_format(std::chrono::duration_cast<std::chrono::microseconds>(time_Rc - time_Lc).count()));
+
             result = do_try_borrow_one();
             lk.unlock();
             if(!result)
@@ -111,6 +118,13 @@ namespace rlib {
         explicit fixed_object_pool_coro(boost::asio::io_context &ioc, _bound_construct_args_t ... _args)
                 : borrow_avail_event(ioc), _bound_args(std::forward<_bound_construct_args_t>(_args) ...) {}
 
+        void fill_full() {
+            for(size_t cter = 0; cter < max_size; ++cter) {
+                new_obj_to_buffer();
+                free_list.push_back(&*--buffer.end());
+            }
+        }
+
         // `new` an object. Return nullptr if pool is full.
         obj_t *try_borrow_one() {
             std::lock_guard<std::mutex> _l(buffer_mutex);
@@ -124,7 +138,15 @@ namespace rlib {
             // Not available. Wait for release_one.
             boost::system::error_code ec;
             gt_borrow_one_wait_again:
+
+
+            rlog.debug("full pool. waiting for release");
+            auto time_Lc = std::chrono::high_resolution_clock::now();
             borrow_avail_event.async_wait(yield[ec]); // Warning: you must not hold any lock on yield!
+            auto time_Rc = std::chrono::high_resolution_clock::now();
+            rlog.debug("obj_pool: waited for {} us"_format(std::chrono::duration_cast<std::chrono::microseconds>(time_Rc - time_Lc).count()));
+
+
             result = try_borrow_one();
             if (!result) {
                 // I'm not sure why this error will occur. This is just a work around.
@@ -165,11 +187,13 @@ namespace rlib {
 
                 typename buffer_t::iterator elem_iter(result);
                 elem_iter.get_extra_info() = false; // mark as busy.
+                rlog.debug("obj pool hit");
                 return result;
             }
             if (buffer.size() < max_size) {
                 new_obj_to_buffer();
                 free_list.push_back(&*--buffer.end());
+                rlog.debug("increasing obj pool...(size{})"_format(buffer.size()));
                 goto gt_borrow_again;
             }
             return nullptr;

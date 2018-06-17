@@ -8,6 +8,7 @@
 #include <logger.hpp>
 #include <conn_pool.hpp>
 #include <string>
+#include <chrono>
 #include <list>
 #include <rlib/sys/os.hpp>
 #include <rlib/sys/sio.hpp>
@@ -43,7 +44,7 @@ public:
         std::string value;
     };
 
-    request_result_t sync_request(const std::string &service_name, const std::string &method_name, const std::string &method_arg_type, const std::string &method_arg) {
+    [[deprecated]] request_result_t sync_request(const std::string &service_name, const std::string &method_name, const std::string &method_arg_type, const std::string &method_arg) {
         // You must NEVER edit this string below without carefully consideration!
         const std::string payload = R"RALI("2.0.1"
 "{}"
@@ -128,7 +129,13 @@ null
         if(ec) ON_BOOST_FATAL(ec);
         boost::asio::async_write(sockServer, boost::asio::buffer(payload), yield[ec]);
         if(ec) ON_BOOST_FATAL(ec);
+
+        auto time_L = std::chrono::high_resolution_clock::now();
         boost::asio::async_read(sockServer, boost::asio::buffer(&header, sizeof(header)), yield[ec]);
+        auto time_R = std::chrono::high_resolution_clock::now();
+        auto dura = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
+        rlog.debug("Dubbo query latency = {}"_format(dura));
+
         if(ec) ON_BOOST_FATAL(ec);
         header.data_length = boost::endian::big_to_native(header.data_length);
 

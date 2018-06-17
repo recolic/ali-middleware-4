@@ -37,13 +37,15 @@ namespace consumer {
 
         // Connect to provider_agent and preserve connection.
         provider_info(boost::asio::io_context &ioContext, std::string addr, uint16_t port)
-                : io_context(ioContext), hostname(addr), latency(100000),
-                  pconns(new conn_pool_coro(ioContext, ioContext, addr, (uint16_t) port)) {}
+                : io_context(ioContext), hostname(addr), latency(50000), connpool_latency(1),
+                  pconns(new conn_pool_coro(ioContext, ioContext, addr, (uint16_t) port)) {
+            pconns->fill_full();
+        }
 
         // Auto-generated move constructor is ambiguous.
         provider_info(provider_info &&another)
                 : io_context(another.io_context), hostname(std::move(another.hostname)),
-                  pconns(std::move(another.pconns)), latency(100000) {}
+                  pconns(std::move(another.pconns)), latency(50000), connpool_latency(1) {}
 
         inline boost::beast::http::response<string_body>
         async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &yield) {
@@ -60,25 +62,29 @@ namespace consumer {
                 return std::move(res);
             }();
 
+            auto time_Lc = std::chrono::high_resolution_clock::now();
             auto borrowed_conn = pconns->borrow_one(yield);
             rlib_defer([&] { pconns->release_one(borrowed_conn); });
             boost::asio::ip::tcp::socket &conn = borrowed_conn->get();
+            auto time_Rc = std::chrono::high_resolution_clock::now();
+            connpool_latency = std::chrono::duration_cast<std::chrono::microseconds>(time_Rc - time_Lc).count();
+            rlog.debug("connpool used {} us"_format(connpool_latency.load()));
 
-            auto time_L = std::chrono::high_resolution_clock::now();
             http::async_write(conn, req, yield[ec]);
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
                 return resp_500;
             }
+            auto time_L = std::chrono::high_resolution_clock::now();
             http::async_read(conn, buffer, res, yield[ec]);
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
                 return resp_500;
             }
             auto time_R = std::chrono::high_resolution_clock::now();
-            auto _latency = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
-            rlog.debug("latency is {}"_format(_latency));
-            latency = _latency;
+            latency = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
+            //rlog.debug("latency is {}"_format(latency));
+            
             return std::move(res);
         }
 
@@ -91,8 +97,10 @@ namespace consumer {
         std::unique_ptr<conn_pool_coro> pconns;
         std::string hostname;
 
+    public:
         // Other data structure for burden level measurement.
         std::atomic_uint32_t latency; // us
+        std::atomic_uint32_t connpool_latency; // us
     };
 
     class provider_selector : rlib::noncopyable {
@@ -107,8 +115,8 @@ namespace consumer {
             providers.emplace_back(io_context, RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT);
         }
 
-        provider_info &query_once() {
-            return *providers.begin();
+        provider_info *query_once() {
+            return &*providers.begin();
         }
 #else
 
@@ -145,12 +153,21 @@ namespace consumer {
         }
 
         // Select one provider to query, do auto-balance here.
-        // Determine which provider to query. Potential performance bottleneck here, MUST BE QUICK!
-        provider_info &query_once() {
+        // Determine which provider to query. 
+        provider_info *query_once() {
             static decltype(robin_queue.begin()) curr = robin_queue.begin();
-            if (curr == robin_queue.end())
-                curr = robin_queue.begin();
-            return **(curr++);
+            size_t cter = 0;
+            uint32_t curr_pool_latency = 1;
+            for(auto iter = curr; cter < robin_queue.size(); ++cter) {
+                if (curr == robin_queue.end())
+                    curr = robin_queue.begin();
+                curr_pool_latency = (*curr)->connpool_latency.load();
+                if(curr_pool_latency < 10000)
+                    return *(curr++);
+            }
+            (*curr)->connpool_latency = curr_pool_latency > 51427 ? (curr_pool_latency - 51427) : 1;
+            ++curr;
+            return nullptr;
         }
 
     private:
