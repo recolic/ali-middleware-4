@@ -51,14 +51,14 @@ namespace consumer {
             http::response<string_body> res;
             boost::beast::flat_buffer buffer;
 
-            auto gen_500 = [&req] {
-                http::response<http::string_body> res{http::status::internal_server_error, req.version()};
+            static const resp_500 = [] {
+                http::response<http::string_body> res{http::status::internal_server_error};
                 res.set(http::field::server, "rHttp");
                 res.set(http::field::content_type, "text/plain");
                 res.body() = "server error";
                 res.prepare_payload();
                 return std::move(res);
-            };
+            }();
 
             auto borrowed_conn = pconns->borrow_one(yield);
             rlib_defer([&] { pconns->release_one(borrowed_conn); });
@@ -68,12 +68,12 @@ namespace consumer {
             http::async_write(conn, req, yield[ec]);
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
-                return gen_500();
+                return resp_500;
             }
             http::async_read(conn, buffer, res, yield[ec]);
             if (ec) {
                 RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
-                return gen_500();
+                return resp_500;
             }
             auto time_R = std::chrono::high_resolution_clock::now();
             auto _latency = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
