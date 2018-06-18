@@ -44,7 +44,7 @@ find_package(Boost 1.66.0 REQUIRED system coroutine)
 include_directories(${Boost_INCLUDE_DIRS})
 
 set(RLIB_SRC lib/rlib/libr.cc)
-set(LIB_SRC lib/dubbo_client.hpp lib/kv_serializer.hpp lib/json_serializer.hpp ${RLIB_SRC} lib/boost_asio_quick_connect.hpp lib/pool.hpp lib/conn_pool.hpp lib/boost_asio_event.hpp lib/traceable_list.hpp)
+set(LIB_SRC lib/dubbo_client.hpp lib/kv_serializer.hpp lib/json_serializer.hpp ${RLIB_SRC} lib/boost_asio_quick_connect.hpp lib/pool.hpp lib/conn_pool.hpp lib/boost_asio_event.hpp lib/traceable_list.hpp lib/unix_quick_connect.hpp)
 set(AGENT_SRC src/main.cc src/provider_agent.cc src/provider_agent.hpp src/consumer_agent.cc src/consumer_agent.hpp src/provider_selector.cc src/provider_selector.hpp src/logger.hpp src/etcd_service.cc src/etcd_service.hpp)
 
 add_executable(agent ${AGENT_SRC} ${LIB_SRC})

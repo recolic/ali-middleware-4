@@ -5,7 +5,6 @@
 #ifndef ALI_MIDDLEWARE_AGENT_PRODUCER_SELECTOR_HPP
 #define ALI_MIDDLEWARE_AGENT_PRODUCER_SELECTOR_HPP
 
-#include <boost_asio_quick_connect.hpp>
 #include <etcd_service.hpp>
 #include <conn_pool.hpp>
 #include <string>
@@ -16,10 +15,6 @@
 #include <rlib/macro.hpp>
 #include <logger.hpp>
 
-#include <boost/beast/http.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/asio.hpp>
-#include <boost/asio/spawn.hpp>
 #include <rlib/scope_guard.hpp>
 
 using rlib::literals::operator ""_rs;
@@ -29,8 +24,6 @@ using rlib::literals::operator ""_rs;
 #endif
 
 namespace consumer {
-    namespace http = boost::beast::http;
-    namespace asio = boost::asio;
 
     inline auto http_payload_to_dubbo_parameters(std::string &text) {
         auto kv_str_array = rlib::string(text).split("&");
@@ -67,86 +60,49 @@ namespace consumer {
 
     // Manage connection to provider_agent servers. You must reuse these connections.
     class provider_info : rlib::noncopyable {
-        using string_body = boost::beast::http::string_body;
     public:
         provider_info() = delete;
 
         // Connect to provider_agent and preserve connection.
-        provider_info(boost::asio::io_context &ioContext, std::string addr, uint16_t port)
-                : io_context(ioContext), hostname(addr), latency(50000), connpool_latency(1),
-                  pconns(new conn_pool_coro(ioContext, ioContext, addr, (uint16_t) port)) {
+        provider_info(fd epollfd, std::string addr, uint16_t port)
+                : hostname(addr), latency(50000), connpool_latency(1),
+                  pconns(new unix_conn_pool(epollfd, addr, port)) {
             pconns->fill_full();
         }
 
         // Auto-generated move constructor is ambiguous.
         provider_info(provider_info &&another)
-                : io_context(another.io_context), hostname(std::move(another.hostname)),
-                  pconns(std::move(another.pconns)), latency(50000), connpool_latency(1) {}
+                : hostname(std::move(another.hostname)), pconns(std::move(another.pconns)),
+                  latency(50000), connpool_latency(1) {
 
-        inline boost::beast::http::response<string_body>
-        async_request(boost::beast::http::request<string_body> &req, boost::asio::yield_context &yield) {
-            boost::system::error_code ec;
-            http::response<string_body> res;
-            boost::beast::flat_buffer buffer;
-
-            static const auto resp_500 = [] {
-                http::response<http::string_body> res{http::status::internal_server_error, 11};
-                res.set(http::field::server, "rHttp");
-                res.set(http::field::content_type, "text/plain");
-                res.body() = "server error";
-                res.prepare_payload();
-                return std::move(res);
-            }();
-
-            RDEBUG_CURR_TIME_VAR(time1);
-            auto borrowed_conn = pconns->borrow_one(yield);
-            rlib_defer([&] { pconns->release_one(borrowed_conn); });
-            boost::asio::ip::tcp::socket &conn = borrowed_conn->get();
-            RDEBUG_CURR_TIME_VAR(time2);
-            RDEBUG_LOG_TIME_DIFF(time2, time1, "conn_pool time");
-
-            std::string req_text;
-            try {
-                auto dubbo_args = http_payload_to_dubbo_parameters(req.body());
-                req_text = "\n"_rs.join(dubbo_args.begin(), dubbo_args.end());
-            }
-            catch (std::exception &e) {
-                return resp_500;
-            }
-            asio::async_write(conn, asio::buffer(req_text), yield[ec]);
-
-            //http::async_write(conn, req, yield[ec]);
-            if (ec) {
-                RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
-                return resp_500;
-            }
-
-            auto time_L = std::chrono::high_resolution_clock::now();
-            RDEBUG_LOG_TIME_DIFF(time_L, time2, "write time");
-            char resp_buffer[2048]{0};
-            conn.async_read_some(asio::buffer(resp_buffer, 2048), yield[ec]);
-            //http::async_read(conn, buffer, res, yield[ec]);
-            rlog.debug("read: `{}`"_format(resp_buffer));
-            if (ec) {
-                RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
-                return resp_500;
-            }
-            auto time_R = std::chrono::high_resolution_clock::now();
-            latency = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
-            RDEBUG_LOG_TIME_DIFF(time_R, time_L, "read time");
-
-            res.body() = resp_buffer;
-            res.prepare_payload();
-            return std::move(res);
         }
+
+        fd request(fd consumer_conn, std::string &http_req_body) {
+            // response will be sent to consumer_conn soon. (really soon!)
+            //     your provider connection fd will be returned. You must add it to agent.who_serve_who,
+            //          to let provider know who must she deliver its message.
+            auto borrowed_conn = pconns->borrow_one();
+            rlib_defer([&] { pconns->release_one(borrowed_conn); });
+            fd conn = borrowed_conn->get();
+
+            auto dubbo_args = http_payload_to_dubbo_parameters(http_req_body);
+            auto req_text = "\n"_rs.join(dubbo_args.begin(), dubbo_args.end());
+
+            rlog.debug("query `{}` sent."_format(req_text));
+            RDEBUG_CURR_TIME_VAR(time1);
+            rlib::sockIO::sendn_ex(conn, req_text.data(), req_text.size(), MSG_NOSIGNAL);
+            RDEBUG_CURR_TIME_VAR(time2);
+            RDEBUG_LOG_TIME_DIFF(time2, time1, "send query time");
+            return conn;
+        }
+
 
         const std::string &get_host() const {
             return hostname;
         }
 
     private:
-        boost::asio::io_context &io_context;
-        std::unique_ptr<conn_pool_coro> pconns;
+        std::unique_ptr<unix_conn_pool> pconns;
         std::string hostname;
 
     public:
@@ -159,22 +115,10 @@ namespace consumer {
     public:
         provider_selector() = delete;
 
-#ifdef PROVIDER_SELECTOR_NO_USE_ETCD
-        provider_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
-                : io_context(io_context) {
-            rlog.info("(fake_connect) connecting to etcd server {}."_format(etcd_addr_and_port));
-            rlog.info("(fake_connect) initializing server list as {}:{}."_format(RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT));
-            providers.emplace_back(io_context, RLIB_MACRO_TO_CSTR(DEBUG_SERVER_ADDR), DEBUG_SERVER_PORT);
-        }
-
-        provider_info *query_once() {
-            return &*providers.begin();
-        }
-#else
-
         // Connect to etcd and fetch server list. You must use gRPC or REST API.
-        provider_selector(boost::asio::io_context &io_context, const std::string &etcd_addr_and_port)
-                : io_context(io_context), etcd(etcd_addr_and_port) {
+        provider_selector(fd epollfd, const std::string &etcd_addr_and_port)
+                : epollfd(epollfd), etcd(etcd_addr_and_port) {
+            rlog.debug("selector:epollfd={}"_format(epollfd));
             auto addr_list = etcd.get_list("server");
             for (const auto &_addr : addr_list) {
                 if (_addr.empty())
@@ -182,7 +126,7 @@ namespace consumer {
                 auto addr_and_port = _addr.split(':');
                 if (addr_and_port.size() != 2)
                     throw std::runtime_error("Bad server_addr from etcd: `{}`."_format(_addr));
-                providers.emplace_back(io_context, addr_and_port[0], addr_and_port[1].as<uint16_t>());
+                providers.emplace_back(epollfd, addr_and_port[0], addr_and_port[1].as<uint16_t>());
             }
             rlog.debug("Loaded {} providers."_format(providers.size()));
             if (providers.empty())
@@ -223,15 +167,11 @@ namespace consumer {
         }
 
     private:
+        fd epollfd;
         etcd_service etcd;
-        // TODO: select the one with lowest latency.
+
         std::list<provider_info *> robin_queue;
-#endif
-
-
-    private:
         std::vector<provider_info> providers;
-        boost::asio::io_context &io_context;
 
     };
 

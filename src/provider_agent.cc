@@ -85,11 +85,12 @@ namespace provider {
                 RDEBUG_CURR_TIME_VAR(time1);
                 //http::async_read(conn, buffer, req, yield[ec]);
                 // TODO TODO URGENT: This statement is slow. (takes 50ms-130ms or so)
-                conn.async_read_some(asio::buffer(req_buffer, 2048), yield[ec]);
+                auto _size = conn.async_read_some(asio::buffer(req_buffer, 2048), yield[ec]);
                 //if (ec == http::error::end_of_stream)
                 //break;
                 if (ec && ec != boost::asio::error::eof) ON_BOOST_FATAL(ec);
-                rlog.debug("read_ `{}`"_format(req_buffer));
+                rlog.debug("read_ `{}`, size is {}"_format(req_buffer, _size));
+                if (_size == 0) continue;
 
                 RDEBUG_CURR_TIME_VAR(time2);
                 //auto response = handle_request(std::move(req), yield);

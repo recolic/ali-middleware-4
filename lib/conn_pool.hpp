@@ -6,8 +6,11 @@
 #define ALI_MIDDLEWARE_AGENT_CONN_POOL_HPP
 
 #include <pool.hpp>
+#include <sys/epoll.h>
 #include <boost/asio.hpp>
 #include <boost_asio_quick_connect.hpp>
+#include <unix_quick_connect.hpp>
+#include <rlib/sys/sio.hpp>
 
 namespace consumer {
     // TODO: if necessary, implement pooled_coro_conn. (boost::asio::async_quick_connect is available)
@@ -34,10 +37,48 @@ namespace consumer {
     using conn_pool = rlib::fixed_object_pool<pooled_conn, AGENT_CONN_POOL_SIZE, boost::asio::io_context &, std::string, uint16_t>;
     using conn_pool_coro = rlib::fixed_object_pool_coro<pooled_conn, AGENT_CONN_POOL_SIZE, boost::asio::io_context &, std::string, uint16_t>;
 
+    class pooled_unix_conn_epoll : rlib::noncopyable {
+    public:
+        pooled_unix_conn_epoll(fd epollfd, std::string addr, uint16_t port)
+                : epollfd(epollfd), connfd(rlib::unix_quick_connect(addr, port)) {
+            rlog.debug("made success connection {}, epollfd={}"_format(connfd, epollfd));
+            //rlib::impl::MakeNonBlocking(connfd);
+            ev.events = EPOLLIN | EPOLLRDHUP;
+            ev.data.fd = connfd;
+            if (epoll_ctl(epollfd, EPOLL_CTL_ADD, connfd, &ev) == -1)
+                sysdie("epoll_ctl: fd");
+        }
+
+        pooled_unix_conn_epoll(pooled_unix_conn_epoll &&another)
+                : connfd(another.connfd), epollfd(another.epollfd), ev(std::move(another.ev)) {
+            another.epollfd = another.connfd = -1;
+        }
+
+        ~pooled_unix_conn_epoll() {
+            if (connfd != -1) {
+                rlog.debug("deconstruct conn {}"_format(connfd));
+                if (epoll_ctl(epollfd, EPOLL_CTL_DEL, ev.data.fd, &ev) == -1)
+                    sysdie("epoll_ctl: fd");
+                close(connfd);
+            }
+        }
+
+        fd get() {
+            return connfd;
+        }
+
+    private:
+        fd epollfd;
+        epoll_event ev;
+        fd connfd;
+    };
+
+    using unix_conn_pool = rlib::fixed_object_pool<pooled_unix_conn_epoll, AGENT_CONN_POOL_SIZE, fd, std::string, uint16_t>;
 }
 
 namespace dubbo {
     using conn_pool_coro = rlib::fixed_object_pool_coro<consumer::pooled_conn, DUBBO_CLI_CONN_POOL_SIZE, boost::asio::io_context &, std::string, uint16_t>;
+    using unix_conn_pool = rlib::fixed_object_pool<consumer::pooled_unix_conn_epoll, DUBBO_CLI_CONN_POOL_SIZE, fd, std::string, uint16_t>;
 }
 
 

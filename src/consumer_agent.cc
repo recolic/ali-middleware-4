@@ -4,140 +4,101 @@
 
 #include <consumer_agent.hpp>
 
-#include <boost/beast/http/error.hpp>
-#include <boost/beast/http.hpp>
-#include <boost/beast/core.hpp>
-#include <boost/asio/spawn.hpp>
-
 #include <functional>
 #include <logger.hpp>
-
-using string_view = boost::beast::string_view;
-namespace http = boost::beast::http;
-
-namespace asio = boost::asio;
-namespace ip = asio::ip;
-using tcp = ip::tcp;
+#include <rlib/sys/sio.hpp>
+#include <unix_quick_connect.hpp>
 
 using namespace rlib::literals;
 
 namespace consumer {
 
     [[noreturn]] void agent::listen(const std::string &listen_addr, uint16_t listen_port) {
-        tcp::endpoint endpoint(ip::make_address(listen_addr), listen_port);
-
-        static_assert(std::is_same<decltype(std::bind(&agent::do_listen, this, endpoint, std::placeholders::_1)(
-                *(asio::yield_context *) nullptr)),
-                void>::value, "Error on deducting type for asio::spawn arg2.");
-        rlog.info("Launching http server (consumer_agent) at {}:{}"_format(listen_addr, listen_port));
-        asio::spawn(io_context, std::bind(&agent::do_listen, this, std::move(endpoint), std::placeholders::_1));
-
-        std::vector<std::thread> v;
-        v.reserve((size_t) threads - 1);
-        for (auto i = threads - 1; i > 0; --i)
-            v.emplace_back([this] { this->io_context.run(); });
-        io_context.run();
+        do_epoll_proc(rlib::unix_quick_listen(listen_addr, listen_port));
     }
 
-    void agent::do_listen(tcp::endpoint endpoint, asio::yield_context yield) {
-        boost::system::error_code ec;
+#define RAGENT_EPOLL_MAX_EV 16
 
-        tcp::acceptor acceptor(io_context);
-        acceptor.open(endpoint.protocol(), ec);
-        if (ec) ON_BOOST_FATAL(ec);
+    void agent::do_epoll_proc(fd listenfd) {
+        epoll_event events[RAGENT_EPOLL_MAX_EV];
+        int nfds;
 
-        acceptor.set_option(asio::socket_base::reuse_address(true));
-        if (ec) ON_BOOST_FATAL(ec);
+        epoll_event_new(listenfd, EPOLLIN);
 
-        acceptor.bind(endpoint, ec);
-        if (ec) ON_BOOST_FATAL(ec);
+        for (;;) {
+            nfds = epoll_wait(epollfd, events, RAGENT_EPOLL_MAX_EV, -1);
+            if (nfds == -1)
+                sysdie("epoll_wait");
 
-        acceptor.listen(asio::socket_base::max_listen_connections, ec);
-        if (ec) ON_BOOST_FATAL(ec);
-
-        while (true) {
-            tcp::socket conn(io_context);
-            acceptor.async_accept(conn, yield[ec]);
-            if (ec)
-                RBOOST_LOG_EC(ec, rlib::log_level_t::ERROR);
-            else {
-                /*
-                 * std::bind doesn't allow rvalue (ref) so this version doesn't work.
-                 * auto _fdebug = std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1);
-                 * typeof(_fdebug) is std::_Bind<void (consumer::agent::*(consumer::agent *, socket, std::_Placeholder<1>))(socket&&, yield_context)>
-                 *
-                 * But solution below works, and why? (https://stackoverflow.com/questions/4871273/passing-rvalues-through-stdbind)
-                 * auto _fdebug = std::bind(&agent::do_session, this, std::bind(static_cast<tcp::socket&&(&)(tcp::socket&)>(std::move<tcp::socket&>), std::move(conn)), std::placeholders::_1);
-                 * _fdebug(yield);
-                 *
-                 * asio::spawn(io_context, std::bind(&agent::do_session, this, std::move(conn), std::placeholders::_1));
-                 */
-                asio::spawn(io_context, std::bind(&agent::do_session, this, std::bind(static_cast<tcp::socket&&(&)(tcp::socket&)>(std::move<tcp::socket&>), std::move(conn)), std::placeholders::_1));
+            for (int n = 0; n < nfds; ++n) {
+                if (events[n].data.fd == listenfd) {
+                    // Must accept
+                    fd conn_sock = accept(listenfd, nullptr, nullptr);
+                    if (conn_sock == -1)
+                        sysdie("accept failed");
+                    //rlib::impl::MakeNonBlocking(conn_sock);
+                    epoll_event_new(conn_sock, EPOLLIN | EPOLLRDHUP);
+                } else {
+                    auto &ev = events[n];
+                    if (ev.events == EPOLLRDHUP) {
+                        // Closed connection.
+                        epoll_event_del(ev);
+                        close(ev.data.fd);
+                        continue;
+                    }
+                    if (ev.events != EPOLLIN) {
+                        rlog.error("warn: unkonwn event ignored");
+                        continue;
+                    }
+                    try {
+                        on_readfd_available(ev.data.fd);
+                    }
+                    catch (std::exception &e) {
+                        rlog.error("caught exception `{}` from epoll loop."_format(e.what()));
+                        epoll_event_del(ev);
+                        close(ev.data.fd);
+                    }
+                }
             }
         }
+
     }
 
-    void agent::do_session(tcp::socket &&conn, asio::yield_context yield) {
-        boost::system::error_code ec;
-        boost::beast::flat_buffer buffer;
+    void agent::on_readfd_available(fd conn) {
+        void *buffer = malloc(1024);
+        rlib_defer([&buffer] { free(buffer); });
+        RDEBUG_CURR_TIME_VAR(time1);
+        auto _size = rlib::sockIO::recvall_ex(conn, &buffer, 1024, 0);
+        if (_size == 0)
+            return;
+        RDEBUG_CURR_TIME_VAR(time2);
+        RDEBUG_LOG_TIME_DIFF(time2, time1, "consumer epoll read time");
+        std::string payload((char *) buffer, _size);
+        rlog.debug("epoll read `{}`"_format(payload));
 
-        while (true) {
-            http::request<http::string_body> req;
+        static const std::string resp_400 = "HTTP/1.1 400 Bad Request\r\nServer: rHttp\r\nContent-Length: 3\r\nContent-Type: text/plain\r\n\r\n400";
 
-            http::async_read(conn, buffer, req, yield[ec]);
-            if (ec == http::error::end_of_stream)
-                break;
-            if (ec) ON_BOOST_ERROR(ec);
+        if (payload.substr(0, 4) == "POST") {
+            // consumer is writing something
+            auto body = *rlib::string(payload).split("\r\n").rbegin();
 
-            auto response = handle_request(std::move(req), yield);
-
-            http::async_write(conn, response, yield[ec]);
-
-            if (!response.keep_alive())
-                break;
-        }
-
-        conn.shutdown(tcp::socket::shutdown_send, ec);
-        if (ec) ON_BOOST_ERROR(ec);
-    }
-
-    http::response<http::string_body> agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
-        static const auto resp_400 = []{
-            http::response<http::string_body> res{http::status::bad_request, 11};
-            res.set(http::field::server, "rHttp");
-            res.set(http::field::content_type, "text/plain");
-            res.keep_alive(false);
-            res.body() = "bad request";
-            res.prepare_payload();
-            return std::move(res);
-        }();
-        // Only serve POST request. Return 400 if not GET.
-        if (req.method() != http::verb::post) {
-            rlog.debug("Request is not post. Giving 400.");
-            return resp_400;
-        }
-
-        provider_info *provider = selector.query_once();
-        if(provider == nullptr) {
-            rlog.error("All server latency over 100us... Dropping request...");
-            return resp_400; // TODO: must use 502
-        }
-        req.set(http::field::user_agent, "rHttp");
-        req.set(http::field::host, provider->get_host());
-
-        auto time_L = std::chrono::high_resolution_clock::now();
-        auto res = provider->async_request(req, yield);
-        auto time_R = std::chrono::high_resolution_clock::now();
-        auto _latency = std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count();
-        rlog.debug("async_req latency = {}"_format(_latency));
-
-        res.set(http::field::server, "rHttp");
-        if (res.result() == http::status::internal_server_error) {
-            res.keep_alive(false);
-            rlog.error("Warning: interal server error detected. refuse to keep_alive.");
+            auto server_fd = selector.query_once()->request(conn, body);
+            who_serve_who[server_fd] = conn;
+        } else if (payload.substr(0, 3) == "GET") {
+            rlib::sockIO::sendn_ex(conn, resp_400.data(), resp_400.size(), MSG_NOSIGNAL);
+            rlog.error("invalid req get");
+            throw std::runtime_error("invalid req get");
+        } else if (payload.find_first_not_of("-+1234567890") == std::string::npos) {
+            // provider agent is writing correct result
+            auto consumer_fd = who_serve_who.at(conn);
+            who_serve_who.erase(conn);
+            rlog.debug("got query from server. routing to consumer {}"_format(consumer_fd));
+            auto to_write = "HTTP/1.1 200 OK\r\nServer: rHttp\r\nContent-Length: {}\r\nContent-Type: text/plain\r\n\r\n{}"_format(
+                    payload.size(), payload);
+            rlib::sockIO::sendn_ex(consumer_fd, to_write.data(), to_write.size(), MSG_NOSIGNAL);
         } else {
-            res.keep_alive(req.keep_alive());
+            rlog.error("Unknown packet `{}` dropped."_format(payload));
         }
-        return std::move(res);
     }
+
 }

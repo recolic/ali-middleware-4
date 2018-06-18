@@ -6,8 +6,7 @@
 #include <rlib/opt.hpp>
 #include <logger.hpp>
 #include <boost_asio_quick_connect.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/socket_base.hpp>
+#include <boost/asio.hpp>
 
 using namespace boost::asio;
 using boost::asio::ip::tcp;

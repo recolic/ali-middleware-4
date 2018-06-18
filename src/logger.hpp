@@ -15,4 +15,11 @@ using rlib::literals::operator ""_format;
 #define RDEBUG_CURR_TIME_VAR(var_name) auto var_name = std::chrono::high_resolution_clock::now()
 #define RDEBUG_LOG_TIME_DIFF(time_R, time_L, cstr_name) rlog.debug(cstr_name" used {} us."_format(std::chrono::duration_cast<std::chrono::microseconds>(time_R - time_L).count()))
 
+#define _do_sys_except(msg) do{ \
+                            ::std::string __errmsg = "sys error at {}:{} | errno={}:{} >{}"_format(__FILE__, __LINE__, errno, strerror(errno), (msg)); \
+                            rlog.fatal(__errmsg); \
+                            throw std::runtime_error(__errmsg); \
+                        }while(0)
+#define sysdie(msg) _do_sys_except(msg)
+
 #endif //_ALI_MIDDLEWARE_AGENT_LOGGER_HPP
