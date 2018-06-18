@@ -3,6 +3,9 @@
 
 > [Offical Document](https://code.aliyun.com/middlewarerace2018/docs)
 
+# Curr
+Failed to debug boost::coroutine and failed to finish unix-sock branch. Given up 10 hours before ddl.
+
 ## note and TODO
 
 ```bash
