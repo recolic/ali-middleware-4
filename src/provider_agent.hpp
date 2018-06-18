@@ -35,7 +35,6 @@ namespace provider {
         [[noreturn]] void listen(const std::string &listen_addr, uint16_t listen_port);
 
       private:
-        int threads;
         std::string provider_addr;
         uint16_t provider_port;
         boost::asio::io_context io_context;

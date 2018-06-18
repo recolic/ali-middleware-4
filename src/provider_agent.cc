@@ -6,6 +6,9 @@
 
 #include <provider_agent.hpp>
 
+#include <sys/socket.h>
+#include <sys/epoll.h> 
+
 #include <etcd_service.hpp>
 #include <dubbo_client.hpp>
 #include <boost/beast/http/error.hpp>
@@ -15,6 +18,9 @@
 
 #include <logger.hpp>
 #include <iostream>
+
+#define FD_MAX 128
+#define EPOLL_MAX 10000
 
 namespace http = boost::beast::http;
 namespace asio = boost::asio;
@@ -37,14 +43,108 @@ namespace provider {
 
     [[noreturn]] void agent::listen(const std::string &listen_addr, uint16_t listen_port) {
         // TO/DO: Launch http server, listen consumer request. If get request, then call sendto_provider().
-        tcp::endpoint ep(ip::make_address(listen_addr), listen_port);
+        /*tcp::endpoint ep(ip::make_address(listen_addr), listen_port);
         rlog.info("Launching http server (provider_agent) at {}:{}"_format(listen_addr, listen_port));
         rlog.debug("test debugging tool");
         asio::spawn(io_context, std::bind(&agent::listen_consumer, this, ep, std::placeholders::_1));
-        io_context.run();
+        io_context.run();*/
+        struct epoll_event event;
+        struct epoll_event wait_event;
+
+        int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+
+        struct sockaddr_in sockaddr;
+        bzero(&sockaddr, sizeof(sockaddr));
+        sockaddr.sin_family = AF_INET;
+        sockaddr.sin_port = htons(listen_port);
+        sockaddr.sin_addr = ip::make_address(listen_addr);
+
+        bind(sockfd, (struct sockaddr *)&sockaddr, sizeof(sockaddr));
+
+        int fd[FD_MAX];
+        memset(fd,-1, sizeof(fd));  
+        fd[0] = sockfd;
+
+        int epfd = epoll_create(EPOLL_MAX);
+        if (epfd == -1)
+        {
+            rlog.error("epoll create error");
+            exit(1);
+        }
+
+        event.data.fd = sockfd;
+        event.events = EPOLLIN;
+
+        int ret = epoll_ctl(epfd, EPOLL_CTL_ADD, sockfd, &event);
+        if (ret == -1) {
+            rlog.error("epoll ctl error");
+            exit(1);
+        }
+
+        int i = 0, maxi = 0;
+        for (;;) {
+            ret = ret = epoll_wait(epfd, &wait_event, maxi + 1, -1);
+
+            if ((sockfd = wait_event.data.fd) && (EPOLLIN == wait_event.events & EPOLLIN)) {
+                struct sockaddr_in client_addr;  
+                int client_len = sizeof(cli_addr);
+                int conn = accept(sockfd, (struct sockaddr *)&client_addr, &client_len);
+
+                for (i = 1; i < FD_MAX; i++) {
+                    if (fd[i] < 0) {
+                        fd[i] = conn;
+                        event.data.fd = conn;
+                        event.events = EPOLLIN;
+
+                        ret = epoll_ctl(epfd, EPOLL_CTL_ADD, conn, &event);
+                        if (ret == -1) {
+                            rlog.error("epoll ctl error");
+                            exit(1);
+                        }
+                        break;
+                    }
+                }
+                if (i > maxi)
+                    maxi = i;
+                if (--ret <= 0)
+                    continue;
+            }
+            for (i = 1; i <= maxi; i++) {
+                if (fd[i] < 0)
+                    continue;
+                if ((fd[i] == wait_event.data.fd) & (EPOLLIN == wait_event.events & (EPOLLIN | EPOLLERR))) {
+                    int len = 0;
+                    char req_buffer[2048] = {0d};
+
+                    if ((len = recv(fd[i], buf, sizeof(buf), 0)) < 0) {
+                        if (errno == ECONNRESET)
+                        {
+                            close(fd[i]);
+                            fd[i] = -1;
+                        }
+                        else
+                        {
+                            rlog.error("Read error");
+                        }
+                    }
+                    else if (len == 0) {
+                        close(fd[i]);
+                        fd[i] = -1;
+                    }
+                    else {
+                        auto req_args = rlib::string(req_buffer).split('\n');
+                        auto result = dubbo.async_request(req_args[0], req_args[1], req_args[2], req_args[3], yield);
+                        if (result.status != dubbo_client::status_t::OK)
+                        throw std::runtime_error("dubbo not ok.");
+                        send(fd[i], result.value, sizeof(result.value), 0);
+                    }
+                }
+            }
+        }
     }
 
-    void agent::listen_consumer(tcp::endpoint ep, asio::yield_context yield) {
+    void agent::listen_consumer(tcp::endpoint ep, asio::yield_context yield)
+    {
         // TO/DO: Listen consumer request(thread or coroutine). If get request, then call session_consumer().
         boost::system::error_code ec;
         tcp::acceptor acceptor(io_context);
