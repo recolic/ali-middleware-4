@@ -56,6 +56,8 @@ add_executable(test-threaded-conn-pool test/conn_pool.cc lib/conn_pool.hpp ${RLI
 add_executable(test-asio-event test/boost_asio_event.cc lib/boost_asio_event.hpp ${RLIB_SRC})
 add_executable(test-dubbo-client test/dubbo.cc lib/dubbo_client.hpp ${RLIB_SRC})
 
+add_executable(tcpping test/tcpping.cc ${RLIB_SRC})
+
 target_link_libraries(agent Threads::Threads)
 target_link_libraries(agent Boost::system)
 target_link_libraries(agent Boost::coroutine)
@@ -71,3 +73,5 @@ target_link_libraries(test-asio-event Boost::system)
 target_link_libraries(test-asio-event Boost::coroutine)
 target_link_libraries(test-dubbo-client Boost::system)
 target_link_libraries(test-dubbo-client Boost::coroutine)
+target_link_libraries(tcpping Threads::Threads)
+target_link_libraries(tcpping Boost::system)
