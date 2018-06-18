@@ -66,6 +66,10 @@ namespace rlib {
             borrow_cv.notify_one();
         }
 
+        void reconstruct_one(obj_t *which) {
+            reconstruct_impl(which, std::make_index_sequence<sizeof...(_bound_construct_args_t)>());
+        }
+
     private:
         std::tuple<_bound_construct_args_t ...> _bound_args;
 
@@ -101,6 +105,11 @@ namespace rlib {
         template<size_t ... index_seq>
         inline void new_obj_to_buffer_impl(std::index_sequence<index_seq ...>) {
             buffer.push_back(std::move(obj_t(std::get<index_seq>(_bound_args) ...)), true);
+        }
+        template<size_t ... index_seq>
+        inline void reconstruct_impl(obj_t *which, std::index_sequence<index_seq ...>) {
+            which->~obj_t();
+            new(which) obj_t(std::get<index_seq>(_bound_args) ...);
         }
 
         inline void new_obj_to_buffer() {

@@ -12,6 +12,7 @@
 #include <boost/beast/http.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/asio/spawn.hpp>
+#include <boost/endian/endian.hpp>
 
 #include <logger.hpp>
 #include <iostream>
@@ -80,37 +81,29 @@ namespace provider {
 
         try {
             while (true) {
-                //http::request<http::string_body> req;
-                char req_buffer[2048] = {0};
-                RDEBUG_CURR_TIME_VAR(time1);
-                //http::async_read(conn, buffer, req, yield[ec]);
-                // TODO TODO URGENT: This statement is slow. (takes 50ms-130ms or so)
-                auto _size = conn.async_read_some(asio::buffer(req_buffer, 2048), yield[ec]);
-                //if (ec == http::error::end_of_stream)
-                //break;
+                uint32_t pkg_len = 0;
+                asio::async_read(conn, asio::buffer(&pkg_len, sizeof(pkg_len)), yield[ec]);
+                pkg_len = boost::endian::big_to_native(pkg_len);
+                char *req_buffer = new char[pkg_len+1]{0};
+                rlib_defer(std::bind(std::free, req_buffer));
+                auto _size = asio::async_read(conn, asio::buffer(req_buffer, pkg_len), yield[ec]);
                 if (ec && ec != boost::asio::error::eof) ON_BOOST_FATAL(ec);
-                rlog.debug("read_ `{}`, size is {}"_format(req_buffer, _size));
+                rlog.debug("read_ `{}`, pkg_len is {}"_format(req_buffer, pkg_len));
                 if (_size == 0) continue;
 
-                RDEBUG_CURR_TIME_VAR(time2);
-                //auto response = handle_request(std::move(req), yield);
                 auto req_args = rlib::string(req_buffer).split('\n');
+                if(req_args.size() != 4) {
+                    rlog.error("invalid request `{}` dropped."_format(req_buffer));
+                    continue;
+                }
                 auto result = dubbo.async_request(req_args[0], req_args[1], req_args[2], req_args[3], yield);
                 if (result.status != dubbo_client::status_t::OK)
                     throw std::runtime_error("dubbo not ok.");
-                // TODO: may optimize: 1-2 ms
-                RDEBUG_CURR_TIME_VAR(time3);
 
                 rlog.debug("returning `{}`"_format(result.value));
+                pkg_len = boost::endian::native_to_big(result.value.size());
+                //asio::async_write(conn, asio::buffer(&pkg_len, sizeof(pkg_len)), yield[ec]);
                 asio::async_write(conn, asio::buffer(result.value), yield[ec]);
-                //http::async_write(conn, response, yield[ec]);
-                RDEBUG_CURR_TIME_VAR(time4);
-                RDEBUG_LOG_TIME_DIFF(time2, time1, "read_time");
-                RDEBUG_LOG_TIME_DIFF(time3, time2, "handle_req_time");
-                RDEBUG_LOG_TIME_DIFF(time4, time3, "write_time");
-
-                //if (!response.keep_alive())
-                //    break;
             }
         }
         catch (std::exception &ex) {
@@ -122,7 +115,7 @@ namespace provider {
     }
 
     http::response<http::string_body>
-    agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
+    [[deprecated]] agent::handle_request(http::request<http::string_body> &&req, asio::yield_context &yield) {
         rlog.debug("handle req");
 
         // Return 400 if not POST

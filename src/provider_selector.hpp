@@ -14,6 +14,7 @@
 #include <rlib/log.hpp>
 #include <rlib/macro.hpp>
 #include <logger.hpp>
+#include <boost/endian/endian.hpp>
 
 #include <rlib/scope_guard.hpp>
 
@@ -84,18 +85,21 @@ namespace consumer {
             auto borrowed_conn = pconns->borrow_one();
             rlib_defer([&] { pconns->release_one(borrowed_conn); });
             fd conn = borrowed_conn->get();
+            rlog.debug("Using conn {} as provider."_format(conn));
 
             auto dubbo_args = http_payload_to_dubbo_parameters(http_req_body);
             auto req_text = "\n"_rs.join(dubbo_args.begin(), dubbo_args.end());
 
             rlog.debug("query `{}` sent."_format(req_text));
-            RDEBUG_CURR_TIME_VAR(time1);
+            uint32_t pkg_len = boost::endian::native_to_big((uint32_t)req_text.size());
+            rlib::sockIO::sendn_ex(conn, &pkg_len, sizeof(uint32_t), MSG_NOSIGNAL);
             rlib::sockIO::sendn_ex(conn, req_text.data(), req_text.size(), MSG_NOSIGNAL);
-            RDEBUG_CURR_TIME_VAR(time2);
-            RDEBUG_LOG_TIME_DIFF(time2, time1, "send query time");
             return conn;
         }
 
+        void reset_conn(pooled_unix_conn_epoll *broken_conn) {
+            pconns->reconstruct_one(broken_conn);
+        }
 
         const std::string &get_host() const {
             return hostname;

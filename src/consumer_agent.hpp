@@ -42,6 +42,9 @@ namespace consumer {
 
         std::unordered_map<fd, fd> who_serve_who;
 
+        std::unordered_map<fd, std::pair<provider_info *, pooled_unix_conn_epoll *> > owner; // not implemented. (close a connection in connpool will lead to problem now)
+        std::unordered_set<fd> consumer_conns; // use this set as workaround.
+
         auto epoll_event_new(fd _fd, uint32_t _events) {
             epoll_event ev;
             ev.events = _events;

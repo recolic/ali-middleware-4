@@ -29,6 +29,7 @@ namespace consumer {
             nfds = epoll_wait(epollfd, events, RAGENT_EPOLL_MAX_EV, -1);
             if (nfds == -1)
                 sysdie("epoll_wait");
+            rlog.debug("nfds={}"_format(nfds));
 
             for (int n = 0; n < nfds; ++n) {
                 if (events[n].data.fd == listenfd) {
@@ -38,25 +39,29 @@ namespace consumer {
                         sysdie("accept failed");
                     //rlib::impl::MakeNonBlocking(conn_sock);
                     epoll_event_new(conn_sock, EPOLLIN | EPOLLRDHUP);
+                    consumer_conns.insert(conn_sock);
                 } else {
                     auto &ev = events[n];
-                    if (ev.events == EPOLLRDHUP) {
+                    if (ev.events & EPOLLIN) {
+                        try {
+                            on_readfd_available(ev.data.fd);
+                        }
+                        catch (std::exception &e) {
+                            rlog.error("caught exception `{}` from epoll loop."_format(e.what()));
+                            if (consumer_conns.find(ev.data.fd) != consumer_conns.end()) {
+                                epoll_event_del(ev);
+                                close(ev.data.fd);
+                                continue;
+                            }
+                        }
+                    }
+                    if (ev.events & EPOLLRDHUP) {
                         // Closed connection.
-                        epoll_event_del(ev);
-                        close(ev.data.fd);
-                        continue;
-                    }
-                    if (ev.events != EPOLLIN) {
-                        rlog.error("warn: unkonwn event ignored");
-                        continue;
-                    }
-                    try {
-                        on_readfd_available(ev.data.fd);
-                    }
-                    catch (std::exception &e) {
-                        rlog.error("caught exception `{}` from epoll loop."_format(e.what()));
-                        epoll_event_del(ev);
-                        close(ev.data.fd);
+                        if (consumer_conns.find(ev.data.fd) != consumer_conns.end()) {
+                            rlog.debug("conn {} closed."_format(ev.data.fd));
+                            epoll_event_del(ev);
+                            close(ev.data.fd);
+                        }
                     }
                 }
             }
