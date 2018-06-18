@@ -5,6 +5,7 @@
 
 # Curr
 Failed to debug boost::coroutine and failed to finish unix-sock branch. Given up 10 hours before ddl.
+dependency: github.com/recolic/grpc github.com/recolic/cpprestsdk github.com/recolic/etcd-cpp-apiv3 github.com/recolic/rlib
 
 ## note and TODO
 
